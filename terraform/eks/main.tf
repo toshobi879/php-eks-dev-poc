@@ -1,6 +1,6 @@
 ############################################
 # VPC for EKS (using official VPC module)
-#############################################
+############################################
 
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
@@ -29,10 +29,6 @@ module "vpc" {
 # EKS Cluster (using official EKS module)
 ############################################
 
-############################################
-# EKS Cluster (using official EKS module)
-############################################
-
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "~> 20.0"
@@ -46,22 +42,42 @@ module "eks" {
   cluster_endpoint_public_access = true
 
   ############################################
-  # ✅ ADD THIS BLOCK (Kubernetes Access)
+  # ✅ AUTOMATED EKS ACCESS (NO aws-auth)
   ############################################
-access_entries = {
-  eks_admin_sso = {
-    principal_arn = "arn:aws:iam::020408743573:role/aws-reserved/sso.amazonaws.com/us-west-2/AWSReservedSSO_AWSAdministratorAccess_3fed78f1fb50999a"
+  access_entries = {
 
-    policy_associations = {
-      cluster_admin = {
-        policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
-        access_scope = {
-          type = "cluster"
+    ##########################################
+    # SSO Admin (Human access)
+    ##########################################
+    eks_admin_sso = {
+      principal_arn = "arn:aws:iam::020408743573:role/aws-reserved/sso.amazonaws.com/us-west-2/AWSReservedSSO_AWSAdministratorAccess_3fed78f1fb50999a"
+
+      policy_associations = {
+        cluster_admin = {
+          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+          access_scope = {
+            type = "cluster"
+          }
+        }
+      }
+    }
+
+    ##########################################
+    # GitHub Actions (CI/CD automation)
+    ##########################################
+    github_actions = {
+      principal_arn = "arn:aws:iam::020408743573:role/php-eks-dev-poc-role"
+
+      policy_associations = {
+        cluster_admin = {
+          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+          access_scope = {
+            type = "cluster"
+          }
         }
       }
     }
   }
-}
 
   ############################################
 
