@@ -7,13 +7,13 @@ variable "aws_region" {
 variable "project_name" {
   description = "Prefix for all resources"
   type        = string
-  default     = "caltrans-eks--poc"
+  default     = "caltrans-eks-dev-poc"
 }
 
 variable "eks_cluster_version" {
   description = "EKS Kubernetes version"
   type        = string
-  default     = "1.30"
+  default     = "1.28"
 }
 
 variable "node_instance_type" {
