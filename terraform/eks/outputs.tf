@@ -15,5 +15,5 @@ output "cluster_region" {
 
 output "cluster_oidc_issuer_url" {
   description = "OIDC issuer URL"
-  value       = module.eks.oidc_provider
+  value       = module.eks.cluster_oidc_issuer_url
 }
