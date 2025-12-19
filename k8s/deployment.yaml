@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: php-app
+  namespace: php-poc
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: php-app
+  template:
+    metadata:
+      labels:
+        app: php-app
+    spec:
+      containers:
+        - name: php-app
+          image: 020408743573.dkr.ecr.us-west-2.amazonaws.com/php-eks-app:1
+          ports:
+            - containerPort: 80
+          env:
+            - name: DB_HOST
+              value: "php-eks-rds-poc-mysql.cf26y8cg07cy.us-west-2.rds.amazonaws.com"
+            - name: DB_NAME
+              value: "appdb"
+            - name: DB_USER
+              value: "appuser"
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: DB_PASS

@@ -1,0 +1,68 @@
+name: Deploy to EKS
+
+on:
+  workflow_dispatch:
+    inputs:
+      IMAGE_TAG:
+        description: 'Image tag to deploy'
+        default: 'latest'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      CLUSTER_NAME: ${{ secrets.CLUSTER_NAME }}
+      IMAGE_TAG: ${{ github.event.inputs.IMAGE_TAG }}
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+      NAMESPACE: php-poc
+      DEPLOYMENT_NAME: php-app
+      CONTAINER_NAME: php-app
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --region $AWS_REGION \
+            --name $CLUSTER_NAME
+
+      - name: Apply namespace
+        run: |
+          kubectl apply --validate=false -f k8s/namespace.yaml
+
+      - name: Apply Kubernetes resources
+        run: |
+          kubectl apply --validate=false -n $NAMESPACE -f k8s/secret.yaml
+          kubectl apply --validate=false -n $NAMESPACE -f k8s/deployment.yaml
+          kubectl apply --validate=false -n $NAMESPACE -f k8s/service.yaml
+
+      - name: Update Deployment image
+        run: |
+          kubectl set image deployment/$DEPLOYMENT_NAME \
+            $CONTAINER_NAME=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG \
+            -n $NAMESPACE
+
+      - name: Wait for rollout
+        run: |
+          kubectl rollout status deployment/$DEPLOYMENT_NAME \
+            -n $NAMESPACE \
+            --timeout=300s
+
+      - name: Verify pods
+        run: |
+          kubectl get pods -n $NAMESPACE -o wide

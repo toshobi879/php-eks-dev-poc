@@ -1,0 +1,62 @@
+name: Build & Push (Auto ECR)
+
+on:
+  workflow_dispatch:
+    inputs:
+      IMAGE_TAG:
+        description: 'Image tag'
+        default: 'latest'
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+      IMAGE_TAG: ${{ github.event.inputs.IMAGE_TAG }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Ensure ECR repository exists
+        run: |
+          echo "Checking if ECR repository exists..."
+          aws ecr describe-repositories \
+            --repository-names $ECR_REPOSITORY \
+            --region $AWS_REGION \
+          || aws ecr create-repository \
+            --repository-name $ECR_REPOSITORY \
+            --region $AWS_REGION
+
+      - name: Login to Amazon ECR
+        run: |
+          aws ecr get-login-password --region $AWS_REGION \
+          | docker login --username AWS --password-stdin \
+          $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+
+      - name: Build Docker image
+        run: |
+          docker build -t php-app:$IMAGE_TAG app
+
+      - name: Tag Docker image
+        run: |
+          docker tag php-app:$IMAGE_TAG \
+          $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
+
+      - name: Push Docker image
+        run: |
+          docker push \
+          $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
