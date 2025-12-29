@@ -1,12 +1,12 @@
-name: Build & Push
+name: Build & Push (Auto ECR)
 
 on:
   push:
     branches:
       - main
     paths:
-      - "app/**"
-      - "k8s/**"
+      - 'app/**'
+      - 'k8s/**'
 
 jobs:
   build:
@@ -32,6 +32,15 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
+      - name: Ensure ECR repository exists
+        run: |
+          aws ecr describe-repositories \
+            --repository-names $ECR_REPOSITORY \
+            --region $AWS_REGION \
+          || aws ecr create-repository \
+            --repository-name $ECR_REPOSITORY \
+            --region $AWS_REGION
+
       - name: Login to Amazon ECR
         run: |
           aws ecr get-login-password --region $AWS_REGION \
@@ -42,10 +51,12 @@ jobs:
         run: |
           docker build -t php-app:$IMAGE_TAG app
 
-      - name: Tag & Push image
+      - name: Tag image
         run: |
           docker tag php-app:$IMAGE_TAG \
-            $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
+          $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
 
+      - name: Push image to ECR
+        run: |
           docker push \
-            $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
+          $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
