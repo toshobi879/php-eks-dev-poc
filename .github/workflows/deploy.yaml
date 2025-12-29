@@ -1,14 +1,15 @@
-name: Deploy to EKS
+name: Build & Push (Auto ECR)
 
 on:
-  workflow_dispatch:
-    inputs:
-      IMAGE_TAG:
-        description: 'Image tag to deploy'
-        default: 'latest'
+  push:
+    branches:
+      - main
+    paths:
+      - 'app/**'
+      - 'k8s/**'
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
 
     permissions:
@@ -17,13 +18,9 @@ jobs:
 
     env:
       AWS_REGION: ${{ secrets.AWS_REGION }}
-      CLUSTER_NAME: ${{ secrets.CLUSTER_NAME }}
-      IMAGE_TAG: ${{ github.event.inputs.IMAGE_TAG }}
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
       ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
-      NAMESPACE: php-poc
-      DEPLOYMENT_NAME: php-app
-      CONTAINER_NAME: php-app
+      IMAGE_TAG: ${{ github.sha }}
 
     steps:
       - name: Checkout code
@@ -35,34 +32,31 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Update kubeconfig
+      - name: Ensure ECR repository exists
         run: |
-          aws eks update-kubeconfig \
+          aws ecr describe-repositories \
+            --repository-names $ECR_REPOSITORY \
             --region $AWS_REGION \
-            --name $CLUSTER_NAME
+          || aws ecr create-repository \
+            --repository-name $ECR_REPOSITORY \
+            --region $AWS_REGION
 
-      - name: Apply namespace
+      - name: Login to Amazon ECR
         run: |
-          kubectl apply --validate=false -f k8s/namespace.yaml
+          aws ecr get-login-password --region $AWS_REGION \
+          | docker login --username AWS --password-stdin \
+          $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
 
-      - name: Apply Kubernetes resources
+      - name: Build Docker image
         run: |
-          kubectl apply --validate=false -n $NAMESPACE -f k8s/secret.yaml
-          kubectl apply --validate=false -n $NAMESPACE -f k8s/deployment.yaml
-          kubectl apply --validate=false -n $NAMESPACE -f k8s/service.yaml
+          docker build -t php-app:$IMAGE_TAG app
 
-      - name: Update Deployment image
+      - name: Tag image
         run: |
-          kubectl set image deployment/$DEPLOYMENT_NAME \
-            $CONTAINER_NAME=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG \
-            -n $NAMESPACE
+          docker tag php-app:$IMAGE_TAG \
+          $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
 
-      - name: Wait for rollout
+      - name: Push image to ECR
         run: |
-          kubectl rollout status deployment/$DEPLOYMENT_NAME \
-            -n $NAMESPACE \
-            --timeout=300s
-
-      - name: Verify pods
-        run: |
-          kubectl get pods -n $NAMESPACE -o wide
+          docker push \
+          $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
