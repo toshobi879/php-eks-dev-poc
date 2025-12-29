@@ -7,7 +7,7 @@ variable "aws_region" {
 variable "project_name" {
   description = "Prefix for all resources"
   type        = string
-  default     = "caltrans-eks-dev-poc"
+  default     = "caltrans-poc-eks"
 }
 
 variable "eks_cluster_version" {
