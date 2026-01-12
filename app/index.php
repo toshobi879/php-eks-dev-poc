@@ -19,7 +19,7 @@ try {
   ]);
 
   $row = $pdo->query("SELECT NOW() AS now_time")->fetch(PDO::FETCH_ASSOC);
-  echo "✅ Connected to MySQL-Updated. Server time: " . $row["now_time"] . "\n";
+  echo "✅ Connected to MySQL. Server time: " . $row["now_time"] . "\n";
 } catch (Exception $e) {
   http_response_code(500);
   echo "❌ DB connection failed:\n" . $e->getMessage() . "\n";
