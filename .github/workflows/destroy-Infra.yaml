@@ -34,21 +34,21 @@ jobs:
       # =========================
       - name: Terraform Init - RDS
         run: |
-          cd terraform/RDS
+          cd terraform/rds
           terraform init
 
       - name: Terraform Destroy - RDS
         run: |
-          cd terraform/RDS
+          cd terraform/rds
           terraform destroy -auto-approve
 
       # STEP 2 - DESTROY EKS
       - name: Terraform Init - EKS
         run: |
-          cd terraform/EKS
+          cd terraform/eks
           terraform init
 
       - name: Terraform Destroy - EKS
         run: |
-          cd terraform/EKS
+          cd terraform/eks
           terraform destroy -auto-approve
