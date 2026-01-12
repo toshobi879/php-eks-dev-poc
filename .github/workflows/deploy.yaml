@@ -61,8 +61,5 @@ jobs:
           kubectl rollout status deployment/$DEPLOYMENT_NAME \
           -n $NAMESPACE --timeout=300s
 
-      - name: Show Service URL
-        run: |
-          echo "Fetching service details..."
-          kubectl get svc -n $NAMESPACE
-          echo "Deployment completed successfully."
+      - name: Deployment completed
+        run: echo "Deployment is successfully completed"
