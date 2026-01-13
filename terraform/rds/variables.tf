@@ -3,8 +3,7 @@ variable "aws_region" {
 }
 
 variable "project_name" {
-  type    = string
-  default = "php-eks-rds-poc"
+  type = string
 }
 
 variable "vpc_id" {
@@ -15,19 +14,16 @@ variable "private_subnet_ids" {
   type = list(string)
 }
 
-# Use EKS cluster security group id here
 variable "eks_cluster_sg_id" {
   type = string
 }
 
 variable "db_name" {
-  type    = string
-  default = "appdb"
+  type = string
 }
 
 variable "db_username" {
-  type    = string
-  default = "appuser"
+  type = string
 }
 
 variable "db_password" {
