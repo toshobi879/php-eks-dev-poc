@@ -17,9 +17,9 @@ jobs:
       contents: read
 
     env:
-      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-      ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+      ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
       IMAGE_TAG: ${{ github.sha }}
 
     steps:
@@ -30,7 +30,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: Ensure ECR repository exists
         run: |
@@ -49,11 +49,11 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t php-app:$IMAGE_TAG app
+          docker build -t $ECR_REPOSITORY:$IMAGE_TAG app
 
       - name: Tag image
         run: |
-          docker tag php-app:$IMAGE_TAG \
+          docker tag $ECR_REPOSITORY:$IMAGE_TAG \
           $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
 
       - name: Push image to ECR
