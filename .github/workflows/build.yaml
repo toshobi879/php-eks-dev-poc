@@ -1,14 +1,12 @@
 name: Build & Push (Auto ECR)
+
 on:
-  workflow_dispatch:
-  
-#on:
- # push:
-  #  branches:
-  #    -
-   # paths:
-    #  - 'app/**'
-     # - 'k8s/**'
+  push:
+    branches:
+      - main
+    paths:
+      - 'app/**'
+      - 'k8s/**'
 
 jobs:
   build:
