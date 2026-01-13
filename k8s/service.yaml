@@ -1,12 +1,12 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: php-app-svc
+  name: office-locator-svc
   namespace: php-poc
 spec:
   type: LoadBalancer
   selector:
-    app: php-app
+    app: office-locator
   ports:
     - port: 80
       targetPort: 80
