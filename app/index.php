@@ -23,13 +23,13 @@ while($row = $result->fetch_assoc()){
 }
 ?>
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>California Department of Transportation – Office Locator</title>
-    <meta charset="utf-8">
+    <meta charset="UTF-8">
+    <title>Caltrans Office Locator</title>
 
     <!-- Google Font -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <!-- Leaflet -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
@@ -38,42 +38,41 @@ while($row = $result->fetch_assoc()){
     <style>
         body {
             margin: 0;
-            font-family: 'Inter', sans-serif;
-            background: #f4f6f9;
-            color: #1f2933;
+            font-family: 'Poppins', sans-serif;
+            background: #f3f6fb;
         }
 
         /* Header */
         .header {
-            background: #003a8f;
-            color: #fff;
-            padding: 18px 30px;
+            background: linear-gradient(90deg, #002b5c, #00509d);
+            color: white;
+            padding: 20px 30px;
             display: flex;
+            justify-content: space-between;
             align-items: center;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
 
         .header h1 {
-            font-size: 20px;
             margin: 0;
+            font-size: 22px;
             font-weight: 600;
         }
 
         .header span {
             font-size: 14px;
-            margin-left: 10px;
-            opacity: 0.85;
+            opacity: 0.9;
         }
 
         .container {
             display: flex;
-            height: calc(100vh - 64px);
+            height: calc(100vh - 80px);
         }
 
         /* Sidebar */
         .sidebar {
             width: 38%;
-            background: #ffffff;
+            background: white;
             padding: 20px;
             overflow-y: auto;
             border-right: 1px solid #e5e7eb;
@@ -81,76 +80,113 @@ while($row = $result->fetch_assoc()){
 
         .search-box input {
             width: 100%;
-            padding: 12px 14px;
-            font-size: 15px;
-            border-radius: 8px;
+            padding: 14px 16px;
+            border-radius: 10px;
             border: 1px solid #d1d5db;
+            font-size: 15px;
             outline: none;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
         }
 
         .search-box input:focus {
             border-color: #2563eb;
-            box-shadow: 0 0 0 2px rgba(37,99,235,0.1);
+            box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
         }
 
         .office-card {
-            background: #f9fafb;
-            padding: 14px 16px;
-            border-radius: 10px;
-            margin-bottom: 12px;
+            background: linear-gradient(135deg, #f9fafb, #ffffff);
+            padding: 16px 18px;
+            border-radius: 14px;
+            margin-bottom: 14px;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.25s ease;
             border: 1px solid #e5e7eb;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
         }
 
         .office-card:hover {
-            background: #eef2ff;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 18px rgba(0,0,0,0.12);
             border-color: #c7d2fe;
-            transform: translateY(-1px);
+            background: #eef2ff;
         }
 
         .org {
             font-weight: 600;
             font-size: 15px;
-            margin-bottom: 4px;
+            margin-bottom: 6px;
+            color: #1f2933;
         }
 
         .addr {
-            color: #4b5563;
             font-size: 14px;
-            line-height: 1.4;
+            color: #4b5563;
+            margin-bottom: 8px;
         }
 
+        .map-btn {
+            display: inline-block;
+            padding: 6px 12px;
+            font-size: 12px;
+            background: #2563eb;
+            color: white;
+            border-radius: 6px;
+            text-decoration: none;
+        }
+
+        .map-btn:hover {
+            background: #1d4ed8;
+        }
+
+        /* Map */
         .map {
             width: 62%;
+            position: relative;
         }
 
         #map {
             height: 100%;
         }
 
-        /* Footer note */
         .footer-note {
+            text-align: center;
             font-size: 12px;
             color: #6b7280;
-            margin-top: 10px;
-            text-align: center;
+            margin-top: 15px;
+        }
+
+        /* Top info bar */
+        .info-bar {
+            background: #e0ecff;
+            padding: 10px 14px;
+            border-radius: 10px;
+            font-size: 13px;
+            color: #1e3a8a;
+            margin-bottom: 15px;
         }
     </style>
 </head>
 <body>
 
-<!-- Header -->
+<!-- HEADER -->
 <div class="header">
-    <h1>California Department of Transportation</h1>
-    <span>Office Locator – Caltrans</span>
+    <div>
+        <h1>California Department of Transportation</h1>
+        <span>Office Locator Portal</span>
+    </div>
+    <div>
+        <span>Powered by Amazon EKS & RDS</span>
+    </div>
 </div>
 
 <div class="container">
 
-    <!-- Sidebar -->
+    <!-- SIDEBAR -->
     <div class="sidebar">
+
+        <div class="info-bar">
+            📍 Find Caltrans offices across California. Click any office to view on map.
+        </div>
 
         <form method="get" class="search-box">
             <input type="text" name="q" placeholder="Search by city, district, or office name..." value="<?= htmlspecialchars($search) ?>">
@@ -168,17 +204,24 @@ while($row = $result->fetch_assoc()){
                      '<?= addslashes($o['organization']) ?>',
                      '<?= addslashes($o['street_address']) ?>'
                  )">
+
                 <div class="org"><?= $o['organization'] ?></div>
                 <div class="addr"><?= $o['street_address'] ?></div>
+
+                <a class="map-btn" target="_blank"
+                   href="https://www.google.com/maps/search/?api=1&query=<?= urlencode($o['street_address']) ?>">
+                    View on Google Maps
+                </a>
             </div>
         <?php endforeach; ?>
 
         <div class="footer-note">
-            Data Source: Caltrans Offices • Powered by Amazon EKS & RDS
+            Data Source: Caltrans Offices • Enterprise Demo Application
         </div>
+
     </div>
 
-    <!-- Map -->
+    <!-- MAP -->
     <div class="map">
         <div id="map"></div>
     </div>
@@ -186,7 +229,7 @@ while($row = $result->fetch_assoc()){
 </div>
 
 <script>
-    var map = L.map('map').setView([37.0902, -95.7129], 4); // USA centered
+    var map = L.map('map').setView([37.0902, -95.7129], 4);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution:'© OpenStreetMap contributors'
