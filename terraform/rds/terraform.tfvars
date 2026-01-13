@@ -1,14 +1,14 @@
 aws_region   = "us-west-2"
 project_name = "php-eks-rds-poc"
 
-vpc_id = "vpc-091a2616296b13881"
+vpc_id = "vpc-0c07f6b18652eda85"
 
 private_subnet_ids = [
-  "subnet-0c2d20de79a167342",
-  "subnet-0597b4f8b3175225c"
+  "subnet-02cd9f860cf61acb8",
+  "subnet-079c9958bfca9c53a"
 ]
 
-eks_cluster_sg_id = "sg-0327f16eb1cae39dc"
+eks_cluster_sg_id = "sg-0aa1bf1ae365bd0a7"
 
 db_name     = "appdb"
 db_username = "appuser"
