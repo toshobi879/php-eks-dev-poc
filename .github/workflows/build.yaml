@@ -3,7 +3,7 @@ name: Build & Push (Auto ECR)
 on:
   push:
     branches:
-      - main
+      -
     paths:
       - 'app/**'
       - 'k8s/**'
