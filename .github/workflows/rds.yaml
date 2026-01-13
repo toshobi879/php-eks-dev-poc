@@ -12,6 +12,9 @@ jobs:
       id-token: write
       contents: read
 
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+
     steps:
       # -------------------------
       # Checkout Source Code
@@ -26,7 +29,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: ${{ vars.AWS_REGION }}
           role-session-name: GitHubActions-${{ github.run_id }}
           role-duration-seconds: 1200
 
@@ -54,8 +57,9 @@ jobs:
       # Export Terraform Outputs
       # -------------------------
       - name: Save Terraform Outputs
+        working-directory: terraform/rds
         run: |
-          echo "DB_ENDPOINT=$(terraform -chdir=terraform/rds output -raw rds_endpoint)" >> $GITHUB_ENV
-          echo "DB_PORT=$(terraform -chdir=terraform/rds output -raw rds_port)" >> $GITHUB_ENV
-          echo "DB_NAME=$(terraform -chdir=terraform/rds output -raw db_name)" >> $GITHUB_ENV
-          echo "DB_USERNAME=$(terraform -chdir=terraform/rds output -raw db_username)" >> $GITHUB_ENV
+          echo "DB_ENDPOINT=$(terraform output -raw rds_endpoint)" >> $GITHUB_ENV
+          echo "DB_PORT=$(terraform output -raw rds_port)" >> $GITHUB_ENV
+          echo "DB_NAME=$(terraform output -raw db_name)" >> $GITHUB_ENV
+          echo "DB_USERNAME=$(terraform output -raw db_username)" >> $GITHUB_ENV
