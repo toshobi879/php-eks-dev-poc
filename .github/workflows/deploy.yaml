@@ -17,15 +17,15 @@ jobs:
       contents: read
 
     env:
-      AWS_REGION: ${{ secrets.AWS_REGION }}
-      CLUSTER_NAME: ${{ secrets.CLUSTER_NAME }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      CLUSTER_NAME: ${{ vars.CLUSTER_NAME }}
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-      ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+      ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
       IMAGE_TAG: ${{ github.event.workflow_run.head_sha }}
 
-      NAMESPACE: php-poc
-      DEPLOYMENT_NAME: php-app
-      CONTAINER_NAME: php-app
+      NAMESPACE: ${{ vars.K8S_NAMESPACE }}
+      DEPLOYMENT_NAME: ${{ vars.DEPLOYMENT_NAME }}
+      CONTAINER_NAME: ${{ vars.CONTAINER_NAME }}
 
     steps:
       - name: Checkout code
@@ -35,7 +35,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: Update kubeconfig
         run: |
@@ -61,5 +61,9 @@ jobs:
           kubectl rollout status deployment/$DEPLOYMENT_NAME \
           -n $NAMESPACE --timeout=300s
 
+      - name: Show Service URL
+        run: |
+          kubectl get svc -n $NAMESPACE
+
       - name: Deployment completed
-        run: echo "Deployment is successfully completed"
+        run: echo "🚀 Office Locator application deployed successfully on EKS"
