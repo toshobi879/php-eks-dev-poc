@@ -1,4 +1,5 @@
-aws_region = "us-west-2"
+aws_region   = "us-west-2"
+project_name = "php-eks-rds-poc"
 
 vpc_id = "vpc-091a2616296b13881"
 
@@ -9,4 +10,6 @@ private_subnet_ids = [
 
 eks_cluster_sg_id = "sg-0327f16eb1cae39dc"
 
+db_name     = "appdb"
+db_username = "appuser"
 db_password = "ChangeMe_StrongPassword_123!"
