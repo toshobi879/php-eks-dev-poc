@@ -133,9 +133,10 @@ jobs:
       # ==========================================
       - name: Initialize database (create table + seed data)
         run: |
+          kubectl delete job db-init-job -n $NAMESPACE --ignore-not-found
           kubectl apply -f k8s/db-init-configmap.yaml
           kubectl apply -f k8s/db-init-job.yaml
-
+          
       - name: Show Service URL
         run: |
           kubectl get svc -n $NAMESPACE
