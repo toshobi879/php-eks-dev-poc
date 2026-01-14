@@ -32,3 +32,33 @@ module "eks" {
     Project     = var.project_name
   }
 }
+
+#########
+access_entries = {
+
+  eks_admin_sso = {
+    principal_arn = var.sso_admin_role_arn
+
+    policy_associations = {
+      cluster_admin = {
+        policy_arn = var.eks_admin_policy_arn
+        access_scope = {
+          type = "cluster"
+        }
+      }
+    }
+  }
+
+  github_actions = {
+    principal_arn = var.github_actions_role_arn
+
+    policy_associations = {
+      cluster_admin = {
+        policy_arn = var.eks_admin_policy_arn
+        access_scope = {
+          type = "cluster"
+        }
+      }
+    }
+  }
+}
