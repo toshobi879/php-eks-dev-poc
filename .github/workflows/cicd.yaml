@@ -29,7 +29,7 @@ env:
 jobs:
 
   # ==========================================
-  # 1️⃣ BOOTSTRAP (OPTIONAL – ONE TIME)
+  # 1️⃣ BOOTSTRAP (ALWAYS FIRST IF ENABLED)
   # ==========================================
   bootstrap:
     name: Bootstrap - Backend Infra
@@ -62,11 +62,12 @@ jobs:
 
 
   # ==========================================
-  # 2️⃣ VPC
+  # 2️⃣ VPC (WAIT FOR BOOTSTRAP)
   # ==========================================
   vpc:
     name: Terraform Apply - VPC
     runs-on: ubuntu-latest
+    needs: bootstrap   # 👈 THIS IS THE FIX
     environment: ${{ github.event.inputs.environment }}
 
     steps:
