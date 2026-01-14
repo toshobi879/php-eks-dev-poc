@@ -9,7 +9,6 @@ if ($conn->connect_error) {
     die("DB Connection failed");
 }
 
-
 $search = $_GET['q'] ?? '';
 
 $sql = "SELECT * FROM offices";
