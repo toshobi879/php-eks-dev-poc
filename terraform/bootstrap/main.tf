@@ -43,7 +43,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "encryption" {
 }
 
 ############################################
-# DynamoDB Table for State Locking
+# DynamoDB Table for Terraform State Locking
 ############################################
 
 resource "aws_dynamodb_table" "terraform_locks" {
@@ -66,6 +66,7 @@ resource "aws_dynamodb_table" "terraform_locks" {
     Purpose     = "terraform-locking"
   }
 }
+
 ############################################
 # IAM Policy for Terraform Backend Access
 ############################################
@@ -108,7 +109,7 @@ resource "aws_iam_policy" "terraform_backend_policy" {
 }
 
 ############################################
-# Attach Policy to GitHub Actions Role
+# Attach Backend Policy to GitHub Actions Role
 ############################################
 
 resource "aws_iam_role_policy_attachment" "attach_backend_policy" {
