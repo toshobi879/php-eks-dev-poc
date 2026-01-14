@@ -4,7 +4,7 @@ metadata:
   name: db-init-job
   namespace: php-poc
 spec:
-  backoffLimit: 3
+  backoffLimit: 1
   template:
     spec:
       restartPolicy: Never
@@ -36,7 +36,7 @@ spec:
             - sh
             - -c
             - |
-              echo "Waiting for DB to be ready..."
+              echo "Waiting for DB..."
               sleep 20
               mysql -h $DB_HOST -u $DB_USER -p$DB_PASS $DB_NAME < /sql/init.sql
           volumeMounts:
