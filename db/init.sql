@@ -1,0 +1,18 @@
+CREATE TABLE IF NOT EXISTS offices (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  organization VARCHAR(255) NOT NULL,
+  street_address VARCHAR(255) NOT NULL
+);
+
+INSERT INTO offices (organization, street_address) VALUES
+('Headquarters - Sacramento', '1120 N Street, Sacramento, CA 95814'),
+('District 1 - Eureka', '1656 Union Street, Eureka, CA 95501'),
+('District 2 - Redding', '1657 Riverside Drive, Redding, CA 96001'),
+('District 3 - Marysville / Sacramento', '703 B Street, Marysville, CA 95901'),
+('District 4 - Bay Area / Oakland', '111 Grand Ave, Oakland, CA 94612'),
+('District 5 - San Luis Obispo / Santa Barbara', '50 Higuera Street, San Luis Obispo, CA 93401'),
+('District 6 - Fresno / Bakersfield', '1352 W. Olive Avenue, Fresno, CA 93728'),
+('District 7 - Los Angeles', '100 South Main Street, Los Angeles, CA 90012'),
+('District 8 - San Bernardino / Riverside', '464 W. 4th Street, San Bernardino, CA 92401'),
+('District 9 - Bishop', '500 South Main Street, Bishop, CA 93514'),
+('District 10 - Stockton', '1976 East Dr. Martin Luther King Jr. Blvd., Stockton, CA 95205');
