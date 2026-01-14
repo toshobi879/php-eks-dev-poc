@@ -1,3 +1,7 @@
+############################################
+# S3 Bucket for Terraform State
+############################################
+
 resource "aws_s3_bucket" "terraform_state" {
   bucket = var.backend_bucket_name
 
@@ -8,8 +12,13 @@ resource "aws_s3_bucket" "terraform_state" {
   tags = {
     Name        = var.backend_bucket_name
     Environment = "prod"
+    Purpose     = "terraform-backend"
   }
 }
+
+############################################
+# Enable Versioning (Production Mandatory)
+############################################
 
 resource "aws_s3_bucket_versioning" "versioning" {
   bucket = aws_s3_bucket.terraform_state.id
@@ -18,6 +27,10 @@ resource "aws_s3_bucket_versioning" "versioning" {
     status = "Enabled"
   }
 }
+
+############################################
+# Enable Encryption (Production Mandatory)
+############################################
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "encryption" {
   bucket = aws_s3_bucket.terraform_state.id
@@ -28,6 +41,10 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "encryption" {
     }
   }
 }
+
+############################################
+# DynamoDB Table for State Locking
+############################################
 
 resource "aws_dynamodb_table" "terraform_locks" {
   name         = var.dynamodb_table_name
@@ -46,5 +63,6 @@ resource "aws_dynamodb_table" "terraform_locks" {
   tags = {
     Name        = var.dynamodb_table_name
     Environment = "prod"
+    Purpose     = "terraform-locking"
   }
 }
