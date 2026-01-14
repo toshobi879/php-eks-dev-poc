@@ -1,4 +1,4 @@
-name: Build and Deploy to EKS
+name: Build and Deploy to EKS (Dev)
 
 on:
   push:
@@ -8,17 +8,17 @@ on:
       - "app/**"
       - "k8s/**"
 
-
   workflow_dispatch:
 
 jobs:
 
   # ==========================================
-  # 5️⃣ BUILD
+  # 5️⃣ BUILD & PUSH TO ECR
   # ==========================================
   build:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest
+    environment: dev
 
     permissions:
       id-token: write
@@ -74,9 +74,10 @@ jobs:
   # 6️⃣ DEPLOY TO EKS
   # ==========================================
   deploy:
-    name: Deploy to EKS
+    name: Deploy to EKS (Dev)
     runs-on: ubuntu-latest
     needs: build
+    environment: dev
 
     permissions:
       id-token: write
@@ -132,4 +133,4 @@ jobs:
           kubectl get svc -n $NAMESPACE
 
       - name: Deployment completed
-        run: echo "🚀 Office Locator application deployed successfully on EKS"
+        run: echo "🚀 Office Locator application deployed successfully to DEV on EKS"
