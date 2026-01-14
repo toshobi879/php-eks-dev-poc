@@ -53,7 +53,7 @@ jobs:
 
 
   # ==========================================
-  # 2️⃣ DESTROY RDS
+  # 2️⃣ DESTROY RDS (HARDENED)
   # ==========================================
   destroy_rds:
     name: Terraform Destroy - RDS
@@ -70,6 +70,13 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Force disable RDS deletion protection
+        run: |
+          aws rds modify-db-instance \
+            --db-instance-identifier caltrans-eks-php-mysql \
+            --no-deletion-protection \
+            --apply-immediately || true
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
