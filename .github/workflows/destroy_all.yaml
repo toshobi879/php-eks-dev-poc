@@ -1,0 +1,201 @@
+name: Destroy - Full AWS Cleanup (One Click)
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Select environment (dev or prod)"
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+
+jobs:
+
+  # ==========================================
+  # 1️⃣ CLEAN K8S RESOURCES (VERY IMPORTANT)
+  # ==========================================
+  k8s_cleanup:
+    name: Cleanup Kubernetes Resources
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --region $AWS_REGION \
+            --name ${{ vars.CLUSTER_NAME }}
+
+      - name: Delete all services, ingress, jobs, deployments
+        run: |
+          kubectl delete all --all -n ${{ vars.K8S_NAMESPACE }} --ignore-not-found
+          kubectl delete ingress --all -n ${{ vars.K8S_NAMESPACE }} --ignore-not-found
+          kubectl delete job --all -n ${{ vars.K8S_NAMESPACE }} --ignore-not-found
+
+      - name: Delete namespace
+        run: |
+          kubectl delete namespace ${{ vars.K8S_NAMESPACE }} --ignore-not-found
+
+
+  # ==========================================
+  # 2️⃣ DESTROY RDS
+  # ==========================================
+  destroy_rds:
+    name: Terraform Destroy - RDS
+    runs-on: ubuntu-latest
+    needs: k8s_cleanup
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: latest
+
+      - name: Terraform Init (RDS)
+        working-directory: terraform/rds
+        env:
+          TF_VAR_db_password: ${{ secrets.TF_VAR_DB_PASSWORD }}
+        run: terraform init -input=false
+
+      - name: Terraform Destroy (RDS)
+        working-directory: terraform/rds
+        env:
+          TF_VAR_db_password: ${{ secrets.TF_VAR_DB_PASSWORD }}
+        run: terraform destroy -auto-approve
+
+
+  # ==========================================
+  # 3️⃣ DESTROY EKS
+  # ==========================================
+  destroy_eks:
+    name: Terraform Destroy - EKS
+    runs-on: ubuntu-latest
+    needs: destroy_rds
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: latest
+
+      - name: Terraform Init (EKS)
+        working-directory: terraform/eks
+        run: terraform init -input=false
+
+      - name: Terraform Destroy (EKS)
+        working-directory: terraform/eks
+        run: terraform destroy -auto-approve
+
+
+  # ==========================================
+  # 4️⃣ DESTROY VPC
+  # ==========================================
+  destroy_vpc:
+    name: Terraform Destroy - VPC
+    runs-on: ubuntu-latest
+    needs: destroy_eks
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: latest
+
+      - name: Terraform Init (VPC)
+        working-directory: terraform/vpc
+        run: terraform init -input=false
+
+      - name: Terraform Destroy (VPC)
+        working-directory: terraform/vpc
+        run: terraform destroy -auto-approve
+
+
+  # ==========================================
+  # 5️⃣ DESTROY BOOTSTRAP (S3 + DYNAMODB)
+  # ==========================================
+  destroy_bootstrap:
+    name: Terraform Destroy - Bootstrap
+    runs-on: ubuntu-latest
+    needs: destroy_vpc
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: latest
+
+      - name: Terraform Init (Bootstrap)
+        working-directory: terraform/bootstrap
+        run: terraform init -input=false
+
+      - name: Terraform Destroy (Bootstrap)
+        working-directory: terraform/bootstrap
+        run: terraform destroy -auto-approve
+
+
+  # ==========================================
+  # 6️⃣ FINAL CONFIRMATION
+  # ==========================================
+  done:
+    name: Cleanup Completed
+    runs-on: ubuntu-latest
+    needs: destroy_bootstrap
+
+    steps:
+      - name: Completed
+        run: echo "🔥 Full AWS environment destroyed successfully. No resources should remain."
