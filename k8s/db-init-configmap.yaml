@@ -5,15 +5,15 @@ metadata:
   namespace: php-poc
 data:
   init.sql: |
-    CREATE TABLE IF NOT EXISTS offices (
+    DROP TABLE IF EXISTS offices;
+
+    CREATE TABLE offices (
       id INT AUTO_INCREMENT PRIMARY KEY,
       organization VARCHAR(255) NOT NULL,
       street_address VARCHAR(255) NOT NULL,
       latitude DECIMAL(10,8) NOT NULL,
       longitude DECIMAL(11,8) NOT NULL
     );
-
-    TRUNCATE TABLE offices;
 
     INSERT INTO offices (organization, street_address, latitude, longitude) VALUES
     ('Headquarters - Sacramento', '1120 N Street, Sacramento, CA 95814', 38.5767, -121.4934),
