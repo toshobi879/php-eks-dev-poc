@@ -36,133 +36,187 @@ while($row = $result->fetch_assoc()){
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             margin: 0;
             font-family: 'Poppins', sans-serif;
-            background: #f3f6fb;
+            background: linear-gradient(120deg, #eef2f7, #f8fafc);
+            color: #1f2933;
         }
 
-        /* Header */
+        /* HEADER */
         .header {
-            background: linear-gradient(90deg, #002b5c, #00509d);
+            background: linear-gradient(90deg, #0f172a, #1e3a8a, #2563eb);
             color: white;
-            padding: 20px 30px;
+            padding: 22px 40px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
 
         .header h1 {
             margin: 0;
-            font-size: 22px;
-            font-weight: 600;
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
         }
 
         .header span {
-            font-size: 14px;
+            font-size: 13px;
             opacity: 0.9;
         }
 
         .container {
             display: flex;
-            height: calc(100vh - 80px);
+            height: calc(100vh - 90px);
         }
 
-        /* Sidebar */
+        /* SIDEBAR */
         .sidebar {
-            width: 38%;
-            background: white;
-            padding: 20px;
+            width: 40%;
+            background: rgba(255,255,255,0.8);
+            backdrop-filter: blur(10px);
+            padding: 24px;
             overflow-y: auto;
             border-right: 1px solid #e5e7eb;
         }
 
+        .info-bar {
+            background: linear-gradient(135deg, #dbeafe, #eef2ff);
+            padding: 14px 16px;
+            border-radius: 14px;
+            font-size: 14px;
+            color: #1e3a8a;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+
         .search-box input {
             width: 100%;
-            padding: 14px 16px;
-            border-radius: 10px;
+            padding: 14px 18px;
+            border-radius: 14px;
             border: 1px solid #d1d5db;
             font-size: 15px;
             outline: none;
-            margin-bottom: 20px;
+            margin-bottom: 24px;
+            transition: all 0.25s ease;
         }
 
         .search-box input:focus {
             border-color: #2563eb;
-            box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+            box-shadow: 0 0 0 4px rgba(37,99,235,0.15);
         }
 
         .office-card {
-            background: linear-gradient(135deg, #f9fafb, #ffffff);
-            padding: 16px 18px;
-            border-radius: 14px;
-            margin-bottom: 14px;
+            background: linear-gradient(135deg, #ffffff, #f9fafb);
+            padding: 18px 20px;
+            border-radius: 18px;
+            margin-bottom: 18px;
             cursor: pointer;
-            transition: all 0.25s ease;
+            transition: all 0.3s ease;
             border: 1px solid #e5e7eb;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .office-card::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(120deg, rgba(37,99,235,0.08), rgba(99,102,241,0.08));
+            opacity: 0;
+            transition: 0.3s ease;
+        }
+
+        .office-card:hover::before {
+            opacity: 1;
         }
 
         .office-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+            transform: translateY(-4px) scale(1.01);
+            box-shadow: 0 14px 35px rgba(0,0,0,0.12);
             border-color: #c7d2fe;
-            background: #eef2ff;
         }
 
         .org {
             font-weight: 600;
-            font-size: 15px;
+            font-size: 16px;
             margin-bottom: 6px;
-            color: #1f2933;
+            color: #0f172a;
         }
 
         .addr {
             font-size: 14px;
-            color: #4b5563;
-            margin-bottom: 8px;
+            color: #475569;
+            margin-bottom: 10px;
         }
 
         .map-btn {
             display: inline-block;
-            padding: 6px 12px;
+            padding: 8px 14px;
             font-size: 12px;
-            background: #2563eb;
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
             color: white;
-            border-radius: 6px;
+            border-radius: 8px;
             text-decoration: none;
+            transition: all 0.25s ease;
         }
 
         .map-btn:hover {
-            background: #1d4ed8;
-        }
-
-        /* Map */
-        .map {
-            width: 62%;
-            position: relative;
-        }
-
-        #map {
-            height: 100%;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 15px rgba(37,99,235,0.4);
         }
 
         .footer-note {
             text-align: center;
             font-size: 12px;
             color: #6b7280;
-            margin-top: 15px;
+            margin-top: 25px;
         }
 
-        /* Top info bar */
-        .info-bar {
-            background: #e0ecff;
-            padding: 10px 14px;
+        /* MAP */
+        .map {
+            width: 60%;
+            position: relative;
+        }
+
+        #map {
+            height: 100%;
+            border-radius: 0;
+        }
+
+        /* Scrollbar */
+        .sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb {
+            background: #c7d2fe;
             border-radius: 10px;
-            font-size: 13px;
-            color: #1e3a8a;
-            margin-bottom: 15px;
+        }
+
+        /* Subtle animation */
+        .office-card {
+            animation: fadeUp 0.4s ease forwards;
+        }
+
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
     </style>
 </head>
