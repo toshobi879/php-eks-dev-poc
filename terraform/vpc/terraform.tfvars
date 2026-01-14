@@ -1,6 +1,5 @@
 aws_region  = "us-west-2"
 project_name = "caltrans-eks-php"
-environment  = "prod"
 
 vpc_cidr = "10.20.0.0/16"
 
