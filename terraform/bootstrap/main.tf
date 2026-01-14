@@ -66,3 +66,52 @@ resource "aws_dynamodb_table" "terraform_locks" {
     Purpose     = "terraform-locking"
   }
 }
+############################################
+# IAM Policy for Terraform Backend Access
+############################################
+
+resource "aws_iam_policy" "terraform_backend_policy" {
+  name        = "terraform-backend-access"
+  description = "Allow Terraform to access S3 backend and DynamoDB lock table"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:ListBucket"
+        ]
+        Resource = "arn:aws:s3:::${var.backend_bucket_name}"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject"
+        ]
+        Resource = "arn:aws:s3:::${var.backend_bucket_name}/*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:PutItem",
+          "dynamodb:GetItem",
+          "dynamodb:DeleteItem",
+          "dynamodb:DescribeTable"
+        ]
+        Resource = "arn:aws:dynamodb:${var.aws_region}:*:table/${var.dynamodb_table_name}"
+      }
+    ]
+  })
+}
+
+############################################
+# Attach Policy to GitHub Actions Role
+############################################
+
+resource "aws_iam_role_policy_attachment" "attach_backend_policy" {
+  role       = var.github_actions_role_name
+  policy_arn = aws_iam_policy.terraform_backend_policy.arn
+}
