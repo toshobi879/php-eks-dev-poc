@@ -42,6 +42,7 @@ while($row = $result->fetch_assoc()){
             background: #f3f6fb;
         }
 
+        /* Header */
         .header {
             background: linear-gradient(90deg, #002b5c, #00509d);
             color: white;
@@ -52,22 +53,15 @@ while($row = $result->fetch_assoc()){
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
 
-        .header-left {
-            display: flex;
-            align-items: center;
-            gap: 14px;
+        .header h1 {
+            margin: 0;
+            font-size: 22px;
+            font-weight: 600;
         }
 
-        .logo-circle {
-            width: 42px;
-            height: 42px;
-            border-radius: 50%;
-            background: white;
-            color: #002b5c;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
+        .header span {
+            font-size: 14px;
+            opacity: 0.9;
         }
 
         .container {
@@ -75,6 +69,7 @@ while($row = $result->fetch_assoc()){
             height: calc(100vh - 80px);
         }
 
+        /* Sidebar */
         .sidebar {
             width: 38%;
             background: white;
@@ -123,7 +118,6 @@ while($row = $result->fetch_assoc()){
             transition: all 0.25s ease;
             border: 1px solid #e5e7eb;
             box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-            position: relative;
         }
 
         .office-card:hover {
@@ -136,6 +130,7 @@ while($row = $result->fetch_assoc()){
             font-weight: 600;
             font-size: 15px;
             margin-bottom: 6px;
+            color: #1f2933;
         }
 
         .addr {
@@ -158,6 +153,7 @@ while($row = $result->fetch_assoc()){
             background: #1d4ed8;
         }
 
+        /* Map */
         .map {
             width: 62%;
         }
@@ -176,13 +172,11 @@ while($row = $result->fetch_assoc()){
 </head>
 <body>
 
+<!-- HEADER (Restored Clean Version) -->
 <div class="header">
-    <div class="header-left">
-        <div class="logo-circle">CA</div>
-        <div>
-            <h1>California Department of Transportation</h1>
-            <span>Office Locator Portal</span>
-        </div>
+    <div>
+        <h1>California Department of Transportation</h1>
+        <span>Office Locator Portal</span>
     </div>
     <div>
         <span>Powered by Amazon EKS & RDS</span>
@@ -191,6 +185,7 @@ while($row = $result->fetch_assoc()){
 
 <div class="container">
 
+    <!-- SIDEBAR -->
     <div class="sidebar">
 
         <div class="info-bar">
@@ -209,7 +204,7 @@ while($row = $result->fetch_assoc()){
                 <div class="org"><?= $o['organization'] ?></div>
                 <div class="addr"><?= $o['street_address'] ?></div>
 
-                <!-- FIXED LINK -->
+                <!-- Google Maps Link (Fixed) -->
                 <a class="map-btn"
                    target="_blank"
                    onclick="event.stopPropagation();"
@@ -225,6 +220,7 @@ while($row = $result->fetch_assoc()){
 
     </div>
 
+    <!-- MAP -->
     <div class="map">
         <div id="map"></div>
     </div>
@@ -232,7 +228,8 @@ while($row = $result->fetch_assoc()){
 </div>
 
 <script>
-    var map = L.map('map').setView([36.7783, -119.4179], 6); // California focus
+    // Focus map on California
+    var map = L.map('map').setView([36.7783, -119.4179], 6);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution:'© OpenStreetMap contributors'
