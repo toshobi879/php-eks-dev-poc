@@ -17,7 +17,7 @@ resource "aws_s3_bucket" "terraform_state" {
 }
 
 ############################################
-# Enable Versioning (Production Mandatory)
+# Enable Versioning
 ############################################
 
 resource "aws_s3_bucket_versioning" "versioning" {
@@ -26,10 +26,14 @@ resource "aws_s3_bucket_versioning" "versioning" {
   versioning_configuration {
     status = "Enabled"
   }
+
+  lifecycle {
+    ignore_changes = all
+  }
 }
 
 ############################################
-# Enable Encryption (Production Mandatory)
+# Enable Encryption
 ############################################
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "encryption" {
@@ -39,6 +43,10 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "encryption" {
     apply_server_side_encryption_by_default {
       sse_algorithm = "AES256"
     }
+  }
+
+  lifecycle {
+    ignore_changes = all
   }
 }
 
@@ -58,6 +66,11 @@ resource "aws_dynamodb_table" "terraform_locks" {
 
   point_in_time_recovery {
     enabled = true
+  }
+
+  lifecycle {
+    prevent_destroy = true
+    ignore_changes  = all
   }
 
   tags = {
