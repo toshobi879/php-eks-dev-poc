@@ -26,48 +26,30 @@ jobs:
     environment: ${{ github.event.inputs.environment }}
 
     steps:
-      # ----------------------------
-      # 1. Checkout
-      # ----------------------------
       - name: Checkout code
         uses: actions/checkout@v5
 
-      # ----------------------------
-      # 2. AWS Auth
-      # ----------------------------
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
-      # ----------------------------
-      # 3. Disable deletion protection (CRITICAL)
-      # ----------------------------
       - name: Disable RDS deletion protection
         run: |
           aws rds modify-db-instance \
             --db-instance-identifier $DB_IDENTIFIER \
             --no-deletion-protection \
-            --apply-immediately
+            --apply-immediately || true
 
-      # ----------------------------
-      # 4. Setup Terraform
-      # ----------------------------
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
-      # ----------------------------
-      # 5. Terraform Init
-      # ----------------------------
       - name: Terraform Init (RDS)
         working-directory: terraform/rds
         run: |
           terraform init -input=false
 
-      # ----------------------------
-      # 6. Terraform Destroy (Skip final snapshot handled in TF)
-      # ----------------------------
       - name: Terraform Destroy (RDS)
         working-directory: terraform/rds
         env:
