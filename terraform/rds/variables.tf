@@ -6,6 +6,11 @@ variable "project_name" {
   type = string
 }
 
+variable "environment" {
+  type    = string
+  default = "dev"
+}
+
 variable "db_name" {
   type = string
 }
@@ -25,4 +30,19 @@ variable "instance_class" {
 
 variable "allocated_storage" {
   type = number
+}
+
+variable "backup_retention_period" {
+  type    = number
+  default = 7
+}
+
+variable "deletion_protection" {
+  type    = bool
+  default = true
+}
+
+variable "skip_final_snapshot" {
+  type    = bool
+  default = false
 }
