@@ -1,7 +1,6 @@
 aws_region = "us-west-2"
 
 project_name = "caltrans-eks-php"
-environment  = "prod"
 
 db_name     = "appdb"
 db_username = "appuser"
