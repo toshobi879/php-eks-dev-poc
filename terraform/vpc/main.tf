@@ -16,6 +16,7 @@ module "vpc" {
   enable_dns_support   = true
 
   tags = {
-    Project     = var.project_name
+    Name    = "${var.project_name}-vpc"
+    Project = var.project_name
   }
 }
