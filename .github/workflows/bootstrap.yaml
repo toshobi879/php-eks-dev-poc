@@ -2,27 +2,56 @@ name: Bootstrap - Terraform Backend (One Time)
 
 on:
   workflow_dispatch:
+    inputs:
+      environment:
+        description: "Select environment (dev or prod)"
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
   bootstrap:
+    name: Bootstrap Backend Infra (S3 + DynamoDB)
     runs-on: ubuntu-latest
-
-    permissions:
-      id-token: write
-      contents: read
+    environment: ${{ github.event.inputs.environment }}
 
     steps:
-      - uses: actions/checkout@v5
+      # =========================
+      # Checkout Code
+      # =========================
+      - name: Checkout code
+        uses: actions/checkout@v5
 
-      - uses: aws-actions/configure-aws-credentials@v4
+      # =========================
+      # Configure AWS (OIDC)
+      # =========================
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: GitHubActions-Bootstrap-${{ github.run_id }}
 
-      - uses: hashicorp/setup-terraform@v3
+      # =========================
+      # Setup Terraform
+      # =========================
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: latest
 
-      - name: Terraform Init & Apply
+      # =========================
+      # Terraform Init & Apply
+      # =========================
+      - name: Terraform Init, Plan & Apply (Bootstrap)
         working-directory: terraform/bootstrap
         run: |
-          terraform init
-          terraform apply -auto-approve
+          terraform init -input=false
+          terraform plan
+          terraform apply -auto-approve -input=false
