@@ -1,4 +1,4 @@
-aws_region  = "us-west-2"
+aws_region   = "us-west-2"
 project_name = "caltrans-eks-php"
 
 vpc_cidr = "10.20.0.0/16"
