@@ -1,0 +1,108 @@
+name: Destroy Step 4 - VPC Terraform Destroy (Production Safe)
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Select environment (dev or prod)"
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+
+jobs:
+  vpc_destroy:
+    name: Terraform Destroy - VPC (Force Cleanup)
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      # ----------------------------
+      # 1. AWS Auth
+      # ----------------------------
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      # ----------------------------
+      # 2. Force delete ENIs (CRITICAL)
+      # ----------------------------
+      - name: Delete all remaining ENIs
+        run: |
+          ENIS=$(aws ec2 describe-network-interfaces \
+            --query "NetworkInterfaces[*].NetworkInterfaceId" \
+            --output text)
+
+          for ENI in $ENIS; do
+            echo "Deleting ENI: $ENI"
+            aws ec2 detach-network-interface --network-interface-id $ENI --force || true
+            aws ec2 delete-network-interface --network-interface-id $ENI || true
+          done
+
+      # ----------------------------
+      # 3. Delete NAT Gateways
+      # ----------------------------
+      - name: Delete NAT Gateways
+        run: |
+          NAT_GWS=$(aws ec2 describe-nat-gateways \
+            --query "NatGateways[*].NatGatewayId" \
+            --output text)
+
+          for NAT in $NAT_GWS; do
+            echo "Deleting NAT Gateway: $NAT"
+            aws ec2 delete-nat-gateway --nat-gateway-id $NAT || true
+          done
+
+      # ----------------------------
+      # 4. Detach & delete Internet Gateways
+      # ----------------------------
+      - name: Delete Internet Gateways
+        run: |
+          IGWS=$(aws ec2 describe-internet-gateways \
+            --query "InternetGateways[*].InternetGatewayId" \
+            --output text)
+
+          for IGW in $IGWS; do
+            VPCS=$(aws ec2 describe-internet-gateways \
+              --internet-gateway-ids $IGW \
+              --query "InternetGateways[0].Attachments[*].VpcId" \
+              --output text)
+
+            for VPC in $VPCS; do
+              aws ec2 detach-internet-gateway --internet-gateway-id $IGW --vpc-id $VPC || true
+            done
+
+            aws ec2 delete-internet-gateway --internet-gateway-id $IGW || true
+          done
+
+      # ----------------------------
+      # 5. Setup Terraform
+      # ----------------------------
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      # ----------------------------
+      # 6. Terraform Init
+      # ----------------------------
+      - name: Terraform Init (VPC)
+        working-directory: terraform/vpc
+        run: |
+          terraform init -input=false
+
+      # ----------------------------
+      # 7. Terraform Destroy
+      # ----------------------------
+      - name: Terraform Destroy (VPC)
+        working-directory: terraform/vpc
+        run: |
+          terraform destroy -auto-approve -input=false
