@@ -1,10 +1,10 @@
-name: Full Destroy - Infra Cleanup (One Click)
+name: Full Destroy - Complete Infra Cleanup (One Click)
 
 on:
   workflow_dispatch:
     inputs:
       environment:
-        description: "Select environment (dev or prod)"
+        description: "Select environment"
         required: true
         type: choice
         options:
@@ -17,17 +17,15 @@ permissions:
 
 env:
   AWS_REGION: ${{ vars.AWS_REGION }}
-  CLUSTER_NAME: ${{ vars.CLUSTER_NAME }}
-  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
-  DB_IDENTIFIER: ${{ vars.DB_IDENTIFIER }}
+  TF_VAR_environment: ${{ github.event.inputs.environment }}
 
 jobs:
 
-  # ==========================================
-  # 1️⃣ CLEAN KUBERNETES (VERY IMPORTANT)
-  # ==========================================
+# =========================================================
+# 1️⃣ CLEAN APPLICATION WORKLOADS (SAFE)
+# =========================================================
   k8s_cleanup:
-    name: Cleanup Kubernetes Resources
+    name: Cleanup Application Workloads
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
 
@@ -35,7 +33,12 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Load dynamic values
+        run: |
+          echo "CLUSTER_NAME=${{ vars.EKS_CLUSTER_NAME }}" >> $GITHUB_ENV
+          echo "NAMESPACE=${{ vars.K8S_NAMESPACE }}" >> $GITHUB_ENV
 
       - name: Update kubeconfig
         run: |
@@ -43,53 +46,33 @@ jobs:
             --region $AWS_REGION \
             --name $CLUSTER_NAME
 
-      - name: Delete all services, ingress, jobs
+      - name: Delete application resources only
         run: |
-          kubectl delete svc --all -A --ignore-not-found
-          kubectl delete ingress --all -A --ignore-not-found
-          kubectl delete job --all -A --ignore-not-found
-          kubectl delete deployment --all -A --ignore-not-found
-          kubectl delete namespace php-poc --ignore-not-found
+          kubectl delete svc,ingress,job,deployment -n $NAMESPACE --ignore-not-found
 
-      - name: Wait for LB cleanup
-        run: sleep 60
-
-
-  # ==========================================
-  # 2️⃣ DISABLE RDS DELETION PROTECTION
-  # ==========================================
-  rds_prepare:
-    name: Prepare RDS for Deletion
-    runs-on: ubuntu-latest
-    needs: k8s_cleanup
-    environment: ${{ github.event.inputs.environment }}
-
-    steps:
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
-
-      - name: Disable deletion protection
+      - name: Force delete namespace if stuck
         run: |
-          aws rds modify-db-instance \
-            --db-instance-identifier $DB_IDENTIFIER \
-            --no-deletion-protection \
-            --apply-immediately || true
+          kubectl get namespace $NAMESPACE -o json | jq '.spec.finalizers=[]' | kubectl replace --raw "/api/v1/namespaces/$NAMESPACE/finalize" -f - || true
 
-      - name: Wait for RDS modify
+      - name: Wait for namespace deletion (max 60s)
         run: |
-          aws rds wait db-instance-available \
-            --db-instance-identifier $DB_IDENTIFIER || true
+          for i in {1..12}; do
+            if kubectl get ns $NAMESPACE 2>/dev/null; then
+              echo "Waiting for namespace deletion..."
+              sleep 5
+            else
+              echo "Namespace deleted"
+              break
+            fi
+          done
 
-
-  # ==========================================
-  # 3️⃣ DESTROY RDS (TERRAFORM)
-  # ==========================================
-  rds_destroy:
+# =========================================================
+# 2️⃣ DESTROY RDS (Terraform)
+# =========================================================
+  destroy_rds:
     name: Terraform Destroy - RDS
     runs-on: ubuntu-latest
-    needs: rds_prepare
+    needs: k8s_cleanup
     environment: ${{ github.event.inputs.environment }}
 
     steps:
@@ -98,7 +81,7 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - uses: hashicorp/setup-terraform@v3
 
@@ -108,18 +91,15 @@ jobs:
 
       - name: Terraform Destroy (RDS)
         working-directory: terraform/rds
-        env:
-          TF_VAR_db_password: ${{ secrets.TF_VAR_DB_PASSWORD }}
-        run: terraform destroy -auto-approve -input=false
+        run: terraform destroy -auto-approve -var="environment=${TF_VAR_environment}"
 
-
-  # ==========================================
-  # 4️⃣ DESTROY EKS
-  # ==========================================
-  eks_destroy:
+# =========================================================
+# 3️⃣ DESTROY EKS (Terraform)
+# =========================================================
+  destroy_eks:
     name: Terraform Destroy - EKS
     runs-on: ubuntu-latest
-    needs: rds_destroy
+    needs: destroy_rds
     environment: ${{ github.event.inputs.environment }}
 
     steps:
@@ -128,7 +108,7 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - uses: hashicorp/setup-terraform@v3
 
@@ -138,16 +118,15 @@ jobs:
 
       - name: Terraform Destroy (EKS)
         working-directory: terraform/eks
-        run: terraform destroy -auto-approve -input=false
+        run: terraform destroy -auto-approve -var="environment=${TF_VAR_environment}"
 
-
-  # ==========================================
-  # 5️⃣ DESTROY VPC
-  # ==========================================
-  vpc_destroy:
+# =========================================================
+# 4️⃣ DESTROY VPC (Terraform)
+# =========================================================
+  destroy_vpc:
     name: Terraform Destroy - VPC
     runs-on: ubuntu-latest
-    needs: eks_destroy
+    needs: destroy_eks
     environment: ${{ github.event.inputs.environment }}
 
     steps:
@@ -156,7 +135,7 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - uses: hashicorp/setup-terraform@v3
 
@@ -166,26 +145,4 @@ jobs:
 
       - name: Terraform Destroy (VPC)
         working-directory: terraform/vpc
-        run: terraform destroy -auto-approve -input=false
-
-
-  # ==========================================
-  # 6️⃣ OPTIONAL - CLEAN ECR
-  # ==========================================
-  ecr_cleanup:
-    name: Cleanup ECR Repository
-    runs-on: ubuntu-latest
-    needs: vpc_destroy
-    environment: ${{ github.event.inputs.environment }}
-
-    steps:
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
-
-      - name: Delete ECR images
-        run: |
-          aws ecr batch-delete-image \
-            --repository-name $ECR_REPOSITORY \
-            --image-ids imageTag=latest || true
+        run: terraform destroy -auto-approve -var="environment=${TF_VAR_environment}"
