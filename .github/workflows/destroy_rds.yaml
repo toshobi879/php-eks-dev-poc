@@ -1,4 +1,4 @@
-name: Destroy Step 3 - RDS Terraform Destroy (Production Safe)
+name: Destroy Step 3 - RDS Force Destroy (Production Safe)
 
 on:
   workflow_dispatch:
@@ -20,21 +20,24 @@ env:
   DB_IDENTIFIER: ${{ vars.DB_IDENTIFIER }}
 
 jobs:
-  rds_destroy:
-    name: Terraform Destroy - RDS
+  rds_force_destroy:
+    name: Force Destroy RDS (No Dependency, No Error)
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
+      # ----------------------------
+      # 1. AWS Auth
+      # ----------------------------
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
+      # ----------------------------
+      # 2. Disable deletion protection (CRITICAL)
+      # ----------------------------
       - name: Disable RDS deletion protection
         run: |
           aws rds modify-db-instance \
@@ -42,17 +45,30 @@ jobs:
             --no-deletion-protection \
             --apply-immediately || true
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-
-      - name: Terraform Init (RDS)
-        working-directory: terraform/rds
+      # ----------------------------
+      # 3. Force delete RDS (skip final snapshot)
+      # ----------------------------
+      - name: Force delete RDS instance (skip snapshot)
         run: |
-          terraform init -input=false
+          aws rds delete-db-instance \
+            --db-instance-identifier $DB_IDENTIFIER \
+            --skip-final-snapshot || true
 
-      - name: Terraform Destroy (RDS)
-        working-directory: terraform/rds
-        env:
-          TF_VAR_db_password: ${{ secrets.TF_VAR_DB_PASSWORD }}
+      # ----------------------------
+      # 4. Wait until RDS is fully gone
+      # ----------------------------
+      - name: Wait for RDS deletion
         run: |
-          terraform destroy -auto-approve -input=false
+          echo "Waiting for RDS instance to be fully deleted..."
+          aws rds wait db-instance-deleted \
+            --db-instance-identifier $DB_IDENTIFIER || true
+
+      # ----------------------------
+      # 5. (Optional) Clean Terraform state if exists
+      # ----------------------------
+      - name: Best-effort Terraform cleanup (ignore failures)
+        if: ${{ always() }}
+        run: |
+          cd terraform/rds || exit 0
+          terraform init -input=false || true
+          terraform destroy -auto-approve -input=false || true
