@@ -6,7 +6,6 @@ variable "project_name" {
   type = string
 }
 
-
 variable "eks_cluster_version" {
   type = string
 }
@@ -18,7 +17,7 @@ variable "node_instance_type" {
 variable "desired_capacity" {
   type = number
 }
-#############
+
 variable "github_actions_role_arn" {
   description = "IAM role ARN used by GitHub Actions"
   type        = string
