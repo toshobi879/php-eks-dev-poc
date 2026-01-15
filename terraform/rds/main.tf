@@ -21,15 +21,19 @@ resource "aws_db_subnet_group" "this" {
   subnet_ids = data.terraform_remote_state.vpc.outputs.private_subnets
 }
 
+# -------------------------------
+# RDS Security Group (ONLY from EKS NODES)
+# -------------------------------
 resource "aws_security_group" "rds_sg" {
   name   = "${var.project_name}-rds-sg"
   vpc_id = data.terraform_remote_state.vpc.outputs.vpc_id
 
   ingress {
+    description     = "MySQL from EKS nodes only"
     from_port       = 3306
     to_port         = 3306
     protocol        = "tcp"
-    security_groups = [data.terraform_remote_state.eks.outputs.cluster_security_group_id]
+    security_groups = [data.terraform_remote_state.eks.outputs.node_security_group_id]
   }
 
   egress {
@@ -38,24 +42,37 @@ resource "aws_security_group" "rds_sg" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
+  tags = {
+    Name        = "${var.project_name}-rds-sg"
+    Environment = var.environment
+  }
 }
 
+# -------------------------------
+# RDS Instance
+# -------------------------------
 resource "aws_db_instance" "mysql" {
-  identifier              = "${var.project_name}-mysql"
-  engine                  = "mysql"
-  engine_version          = "8.0"
-  instance_class          = var.instance_class
-  allocated_storage       = var.allocated_storage
+  identifier        = "${var.project_name}-mysql"
+  engine            = "mysql"
+  engine_version    = "8.0"
+  instance_class    = var.instance_class
+  allocated_storage = var.allocated_storage
 
   db_name  = var.db_name
   username = var.db_username
   password = var.db_password
 
-  db_subnet_group_name    = aws_db_subnet_group.this.name
-  vpc_security_group_ids  = [aws_security_group.rds_sg.id]
+  db_subnet_group_name   = aws_db_subnet_group.this.name
+  vpc_security_group_ids = [aws_security_group.rds_sg.id]
 
   publicly_accessible     = false
-  backup_retention_period = 7
-  deletion_protection     = true
-  skip_final_snapshot     = false
+  backup_retention_period = var.backup_retention_period
+  deletion_protection     = var.deletion_protection
+  skip_final_snapshot     = var.skip_final_snapshot
+
+  tags = {
+    Name        = "${var.project_name}-mysql"
+    Environment = var.environment
+  }
 }
