@@ -14,7 +14,6 @@ resource "aws_s3_bucket" "terraform_state" {
 
   tags = {
     Name        = var.backend_bucket_name
-    Environment = "prod"
     Purpose     = "terraform-backend"
   }
 }
@@ -69,7 +68,6 @@ resource "aws_dynamodb_table" "terraform_locks" {
 
   tags = {
     Name        = var.dynamodb_table_name
-    Environment = "prod"
     Purpose     = "terraform-locking"
   }
 }
