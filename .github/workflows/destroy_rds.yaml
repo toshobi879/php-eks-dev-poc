@@ -1,0 +1,76 @@
+name: Destroy Step 3 - RDS Terraform Destroy (Production Safe)
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Select environment (dev or prod)"
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  DB_IDENTIFIER: ${{ vars.DB_IDENTIFIER }}
+
+jobs:
+  rds_destroy:
+    name: Terraform Destroy - RDS
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      # ----------------------------
+      # 1. Checkout
+      # ----------------------------
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      # ----------------------------
+      # 2. AWS Auth
+      # ----------------------------
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      # ----------------------------
+      # 3. Disable deletion protection (CRITICAL)
+      # ----------------------------
+      - name: Disable RDS deletion protection
+        run: |
+          aws rds modify-db-instance \
+            --db-instance-identifier $DB_IDENTIFIER \
+            --no-deletion-protection \
+            --apply-immediately
+
+      # ----------------------------
+      # 4. Setup Terraform
+      # ----------------------------
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      # ----------------------------
+      # 5. Terraform Init
+      # ----------------------------
+      - name: Terraform Init (RDS)
+        working-directory: terraform/rds
+        run: |
+          terraform init -input=false
+
+      # ----------------------------
+      # 6. Terraform Destroy (Skip final snapshot handled in TF)
+      # ----------------------------
+      - name: Terraform Destroy (RDS)
+        working-directory: terraform/rds
+        env:
+          TF_VAR_db_password: ${{ secrets.TF_VAR_DB_PASSWORD }}
+        run: |
+          terraform destroy -auto-approve -input=false
