@@ -1,0 +1,48 @@
+name: Destroy Step 2 - EKS Terraform Destroy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Select environment (dev or prod)"
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+
+jobs:
+  eks_destroy:
+    name: Terraform Destroy - EKS
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init (EKS)
+        working-directory: terraform/eks
+        run: |
+          terraform init -input=false
+
+      - name: Terraform Destroy (EKS)
+        working-directory: terraform/eks
+        run: |
+          terraform destroy -auto-approve -input=false
