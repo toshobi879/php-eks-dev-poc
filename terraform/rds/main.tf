@@ -45,7 +45,6 @@ resource "aws_security_group" "rds_sg" {
 
   tags = {
     Name        = "${var.project_name}-rds-sg"
-    Environment = var.environment
   }
 }
 
@@ -73,6 +72,5 @@ resource "aws_db_instance" "mysql" {
 
   tags = {
     Name        = "${var.project_name}-mysql"
-    Environment = var.environment
   }
 }
