@@ -1,4 +1,4 @@
-name: Destroy Step 1 - Kubernetes Cleanup
+name: Destroy Step 1 - Kubernetes Cleanup (Force)
 
 on:
   workflow_dispatch:
@@ -37,17 +37,25 @@ jobs:
             --region $AWS_REGION \
             --name $CLUSTER_NAME
 
-      - name: Delete all Kubernetes resources
+      - name: Force delete all resources in namespace
         run: |
-          kubectl delete svc --all -n $NAMESPACE --ignore-not-found
-          kubectl delete deploy --all -n $NAMESPACE --ignore-not-found
-          kubectl delete job --all -n $NAMESPACE --ignore-not-found
-          kubectl delete cm --all -n $NAMESPACE --ignore-not-found
-          kubectl delete secret --all -n $NAMESPACE --ignore-not-found
+          kubectl delete all --all -n $NAMESPACE --force --grace-period=0 || true
+          kubectl delete pvc --all -n $NAMESPACE --force --grace-period=0 || true
+          kubectl delete configmap --all -n $NAMESPACE --force --grace-period=0 || true
+          kubectl delete secret --all -n $NAMESPACE --force --grace-period=0 || true
+          kubectl delete job --all -n $NAMESPACE --force --grace-period=0 || true
+          kubectl delete ingress --all -n $NAMESPACE --force --grace-period=0 || true
+
+      - name: Remove finalizers from namespace (CRITICAL)
+        run: |
+          kubectl get namespace $NAMESPACE -o json > ns.json || true
+          cat ns.json | jq '.spec.finalizers=[]' > ns-final.json || true
+          kubectl replace --raw "/api/v1/namespaces/$NAMESPACE/finalize" -f ns-final.json || true
 
       - name: Delete namespace
         run: |
-          kubectl delete namespace $NAMESPACE --ignore-not-found
+          kubectl delete namespace $NAMESPACE --force --grace-period=0 || true
 
-      - name: Verify cleanup
-        run: kubectl get all -A
+      - name: Verify namespace removal
+        run: |
+          kubectl get ns || true
