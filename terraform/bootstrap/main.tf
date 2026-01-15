@@ -1,9 +1,12 @@
+data "aws_caller_identity" "current" {}
+
 ############################################
 # S3 Bucket for Terraform State
 ############################################
 
 resource "aws_s3_bucket" "terraform_state" {
-  bucket = var.backend_bucket_name
+  bucket        = var.backend_bucket_name
+  force_destroy = false
 
   lifecycle {
     prevent_destroy = true
@@ -26,10 +29,6 @@ resource "aws_s3_bucket_versioning" "versioning" {
   versioning_configuration {
     status = "Enabled"
   }
-
-  lifecycle {
-    ignore_changes = all
-  }
 }
 
 ############################################
@@ -43,10 +42,6 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "encryption" {
     apply_server_side_encryption_by_default {
       sse_algorithm = "AES256"
     }
-  }
-
-  lifecycle {
-    ignore_changes = all
   }
 }
 
@@ -70,7 +65,6 @@ resource "aws_dynamodb_table" "terraform_locks" {
 
   lifecycle {
     prevent_destroy = true
-    ignore_changes  = all
   }
 
   tags = {
@@ -92,19 +86,13 @@ resource "aws_iam_policy" "terraform_backend_policy" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow"
-        Action = [
-          "s3:ListBucket"
-        ]
+        Effect   = "Allow"
+        Action   = ["s3:ListBucket"]
         Resource = "arn:aws:s3:::${var.backend_bucket_name}"
       },
       {
-        Effect = "Allow"
-        Action = [
-          "s3:GetObject",
-          "s3:PutObject",
-          "s3:DeleteObject"
-        ]
+        Effect   = "Allow"
+        Action   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
         Resource = "arn:aws:s3:::${var.backend_bucket_name}/*"
       },
       {
@@ -115,7 +103,7 @@ resource "aws_iam_policy" "terraform_backend_policy" {
           "dynamodb:DeleteItem",
           "dynamodb:DescribeTable"
         ]
-        Resource = "arn:aws:dynamodb:${var.aws_region}:*:table/${var.dynamodb_table_name}"
+        Resource = "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/${var.dynamodb_table_name}"
       }
     ]
   })
