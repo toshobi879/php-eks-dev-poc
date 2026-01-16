@@ -107,11 +107,11 @@ jobs:
       - uses: hashicorp/setup-terraform@v3
 
       - name: Terraform Init (RDS)
-        working-directory: infra/rds
+        working-directory: terraform/rds
         run: terraform init -input=false
 
       - name: Terraform Destroy (RDS)
-        working-directory: infra/rds
+        working-directory: terraform/rds
         run: terraform destroy -auto-approve -lock-timeout=5m
 
 # ==========================================
@@ -134,11 +134,11 @@ jobs:
       - uses: hashicorp/setup-terraform@v3
 
       - name: Terraform Init (EKS)
-        working-directory: infra/eks
+        working-directory: terraform/eks
         run: terraform init -input=false
 
       - name: Terraform Destroy (EKS)
-        working-directory: infra/eks
+        working-directory: terraform/eks
         run: terraform destroy -auto-approve -lock-timeout=5m
 
 # ==========================================
@@ -182,9 +182,9 @@ jobs:
       - uses: hashicorp/setup-terraform@v3
 
       - name: Terraform Init (VPC)
-        working-directory: infra/vpc
+        working-directory: terraform/vpc
         run: terraform init -input=false
 
       - name: Terraform Destroy (VPC)
-        working-directory: infra/vpc
+        working-directory: terraform/vpc
         run: terraform destroy -auto-approve -lock-timeout=5m
