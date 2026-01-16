@@ -70,58 +70,80 @@ jobs:
 # 2️⃣ BREAK RDS -> EKS SG DEPENDENCY + EKS DESTROY
 # =========================================================
   eks_destroy:
-    name: Step 2 - Break SG Dependency + Destroy EKS
+    name: Destroy EKS (Fix SG + Terraform Destroy)
     runs-on: ubuntu-latest
-    needs: k8s_cleanup
     environment: ${{ github.event.inputs.environment }}
 
     steps:
-      - uses: actions/checkout@v5
+      # ----------------------------
+      # 1. Checkout
+      # ----------------------------
+      - name: Checkout code
+        uses: actions/checkout@v5
 
-      - uses: aws-actions/configure-aws-credentials@v4
+      # ----------------------------
+      # 2. AWS Auth
+      # ----------------------------
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: ${{ vars.AWS_REGION }}
 
-      # -------- CRITICAL FIX ----------
-      - name: Break RDS -> EKS SG dependency
+      # ----------------------------
+      # 3. 🔥 REMOVE RDS → EKS NODE SG RULE (CRITICAL FIX)
+      # ----------------------------
+      - name: Remove RDS inbound rule referencing EKS node SG
         run: |
-          echo "Finding RDS security group..."
-          RDS_SG=$(aws ec2 describe-security-groups \
-            --filters "Name=group-name,Values=*rds*" \
-            --query "SecurityGroups[0].GroupId" \
-            --output text || true)
+          echo "🔍 Finding security group rules referencing EKS node SG..."
 
-          echo "Finding EKS node security group..."
-          EKS_NODE_SG=$(aws ec2 describe-security-groups \
-            --filters "Name=tag:aws:eks:cluster-name,Values=$CLUSTER_NAME" \
-            --query "SecurityGroups[?contains(GroupName, 'node')].GroupId | [0]" \
-            --output text || true)
+          # Get all security groups
+          SG_IDS=$(aws ec2 describe-security-groups --query "SecurityGroups[].GroupId" --output text)
 
-          echo "RDS_SG=$RDS_SG"
-          echo "EKS_NODE_SG=$EKS_NODE_SG"
+          for sg in $SG_IDS; do
+            aws ec2 describe-security-groups --group-ids $sg \
+              --query "SecurityGroups[].IpPermissions" \
+              --output json > rules.json
 
-          if [ "$RDS_SG" != "None" ] && [ "$EKS_NODE_SG" != "None" ]; then
-            echo "Revoking RDS SG ingress rule referencing EKS SG..."
-            aws ec2 revoke-security-group-ingress \
-              --group-id $RDS_SG \
-              --protocol tcp \
-              --port 3306 \
-              --source-group $EKS_NODE_SG || true
-          else
-            echo "No dependency found, skipping..."
-          fi
+            cat rules.json | jq -c '.[] | select(.UserIdGroupPairs != null)' | while read rule; do
+              FROM_PORT=$(echo $rule | jq -r '.FromPort')
+              TO_PORT=$(echo $rule | jq -r '.ToPort')
+              PROTOCOL=$(echo $rule | jq -r '.IpProtocol')
+              SOURCE_SG=$(echo $rule | jq -r '.UserIdGroupPairs[0].GroupId')
 
-      # -------- EKS DESTROY ----------
+              echo "🧹 Revoking rule in $sg allowing $SOURCE_SG ($PROTOCOL $FROM_PORT-$TO_PORT)"
+
+              aws ec2 revoke-security-group-ingress \
+                --group-id $sg \
+                --protocol $PROTOCOL \
+                --port $FROM_PORT \
+                --source-group $SOURCE_SG || true
+            done
+          done
+
+          echo "✅ SG dependency removed"
+
+      # ----------------------------
+      # 4. Setup Terraform
+      # ----------------------------
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
-      - name: Terraform Destroy - EKS
+      # ----------------------------
+      # 5. Terraform Init (EKS)
+      # ----------------------------
+      - name: Terraform Init - EKS
         working-directory: terraform/eks
         run: |
           terraform init -input=false
-          terraform destroy -auto-approve -input=false
 
+      # ----------------------------
+      # 6. Terraform Destroy (EKS)
+      # ----------------------------
+      - name: Terraform Destroy - EKS
+        working-directory: terraform/eks
+        run: |
+          terraform destroy -auto-approve -input=false
 
 # =========================================================
 # 3️⃣ RDS DESTROY + FORCE DELETE ALL SGs
