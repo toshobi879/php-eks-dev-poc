@@ -1,0 +1,217 @@
+name: 🔥 Destroy All - Full Infra Cleanup (One Click, Production Grade)
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Select environment (dev or prod)"
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  CLUSTER_NAME: ${{ vars.CLUSTER_NAME }}
+  NAMESPACE: ${{ vars.K8S_NAMESPACE }}
+  DB_IDENTIFIER: ${{ vars.DB_IDENTIFIER }}
+  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+
+jobs:
+
+# =========================================================
+# 1️⃣ K8S CLEANUP
+# =========================================================
+  k8s_cleanup:
+    name: Step 1 - Kubernetes Cleanup
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME || true
+
+      - name: Force delete all resources in namespace
+        run: |
+          kubectl delete all --all -n $NAMESPACE --force --grace-period=0 || true
+          kubectl delete pvc --all -n $NAMESPACE --force --grace-period=0 || true
+          kubectl delete configmap --all -n $NAMESPACE --force --grace-period=0 || true
+          kubectl delete secret --all -n $NAMESPACE --force --grace-period=0 || true
+          kubectl delete job --all -n $NAMESPACE --force --grace-period=0 || true
+          kubectl delete ingress --all -n $NAMESPACE --force --grace-period=0 || true
+
+      - name: Remove finalizers from namespace
+        run: |
+          kubectl get namespace $NAMESPACE -o json > ns.json || true
+          cat ns.json | jq '.spec.finalizers=[]' > ns-final.json || true
+          kubectl replace --raw "/api/v1/namespaces/$NAMESPACE/finalize" -f ns-final.json || true
+
+      - name: Delete namespace
+        run: |
+          kubectl delete namespace $NAMESPACE --force --grace-period=0 || true
+
+
+# =========================================================
+# 2️⃣ BREAK RDS -> EKS SG DEPENDENCY + EKS DESTROY
+# =========================================================
+  eks_destroy:
+    name: Step 2 - Break SG Dependency + Destroy EKS
+    runs-on: ubuntu-latest
+    needs: k8s_cleanup
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # -------- CRITICAL FIX ----------
+      - name: Break RDS -> EKS SG dependency
+        run: |
+          echo "Finding RDS security group..."
+          RDS_SG=$(aws ec2 describe-security-groups \
+            --filters "Name=group-name,Values=*rds*" \
+            --query "SecurityGroups[0].GroupId" \
+            --output text || true)
+
+          echo "Finding EKS node security group..."
+          EKS_NODE_SG=$(aws ec2 describe-security-groups \
+            --filters "Name=tag:aws:eks:cluster-name,Values=$CLUSTER_NAME" \
+            --query "SecurityGroups[?contains(GroupName, 'node')].GroupId | [0]" \
+            --output text || true)
+
+          echo "RDS_SG=$RDS_SG"
+          echo "EKS_NODE_SG=$EKS_NODE_SG"
+
+          if [ "$RDS_SG" != "None" ] && [ "$EKS_NODE_SG" != "None" ]; then
+            echo "Revoking RDS SG ingress rule referencing EKS SG..."
+            aws ec2 revoke-security-group-ingress \
+              --group-id $RDS_SG \
+              --protocol tcp \
+              --port 3306 \
+              --source-group $EKS_NODE_SG || true
+          else
+            echo "No dependency found, skipping..."
+          fi
+
+      # -------- EKS DESTROY ----------
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Destroy - EKS
+        working-directory: terraform/eks
+        run: |
+          terraform init -input=false
+          terraform destroy -auto-approve -input=false
+
+
+# =========================================================
+# 3️⃣ RDS DESTROY + FORCE DELETE ALL SGs
+# =========================================================
+  rds_and_sg_cleanup:
+    name: Step 3 - Destroy RDS + Force Delete SGs
+    runs-on: ubuntu-latest
+    needs: eks_destroy
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # -------- RDS DESTROY ----------
+      - name: Disable RDS deletion protection
+        run: |
+          aws rds modify-db-instance \
+            --db-instance-identifier $DB_IDENTIFIER \
+            --no-deletion-protection \
+            --apply-immediately || true
+
+      - name: Force delete RDS instance
+        run: |
+          aws rds delete-db-instance \
+            --db-instance-identifier $DB_IDENTIFIER \
+            --skip-final-snapshot || true
+
+      - name: Wait for RDS deletion
+        run: |
+          aws rds wait db-instance-deleted \
+            --db-instance-identifier $DB_IDENTIFIER || true
+
+      # -------- FORCE DELETE ALL SGs ----------
+      - name: Force delete all non-default security groups
+        run: |
+          VPC_ID=$(aws ec2 describe-vpcs --query "Vpcs[0].VpcId" --output text)
+
+          SG_IDS=$(aws ec2 describe-security-groups \
+            --filters "Name=vpc-id,Values=$VPC_ID" \
+            --query "SecurityGroups[?GroupName!='default'].GroupId" \
+            --output text)
+
+          for sg in $SG_IDS; do
+            echo "Deleting SG: $sg"
+            aws ec2 delete-security-group --group-id $sg || true
+          done
+
+
+# =========================================================
+# 4️⃣ VPC DESTROY
+# =========================================================
+  vpc_destroy:
+    name: Step 4 - Terraform Destroy VPC
+    runs-on: ubuntu-latest
+    needs: rds_and_sg_cleanup
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Destroy - VPC
+        working-directory: terraform/vpc
+        run: |
+          terraform init -input=false
+          terraform destroy -auto-approve -input=false
+
+
+# =========================================================
+# 5️⃣ ECR CLEANUP
+# =========================================================
+  ecr_cleanup:
+    name: Step 5 - Delete ECR Repository
+    runs-on: ubuntu-latest
+    needs: vpc_destroy
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Delete ECR repository
+        run: |
+          aws ecr delete-repository \
+            --repository-name $ECR_REPOSITORY \
+            --force || true
