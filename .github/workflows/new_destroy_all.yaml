@@ -108,10 +108,15 @@ jobs:
 
       - name: Terraform Init (RDS)
         working-directory: terraform/rds
+        env:
+          TF_VAR_db_password: ${{ secrets.TF_VAR_DB_PASSWORD }}
+          
         run: terraform init -input=false
 
       - name: Terraform Destroy (RDS)
         working-directory: terraform/rds
+        env:
+          TF_VAR_db_password: ${{ secrets.TF_VAR_DB_PASSWORD }}
         run: terraform destroy -auto-approve -lock-timeout=5m
         #done
 
