@@ -25,7 +25,7 @@ jobs:
 
 # ==========================================
 # 1️⃣ CLEAN KUBERNETES (CRITICAL)
-# ==========================================
+# =========================================
   k8s_cleanup:
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
