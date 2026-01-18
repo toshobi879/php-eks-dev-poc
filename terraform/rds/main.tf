@@ -73,4 +73,7 @@ resource "aws_db_instance" "mysql" {
   tags = {
     Name        = "${var.project_name}-mysql"
   }
+  lifecycle {
+    ignore_changes = [password]
+  }
 }
