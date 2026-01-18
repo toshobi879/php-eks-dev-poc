@@ -8,6 +8,6 @@ db_username = "appuser"
 instance_class    = "db.t3.micro"
 allocated_storage = 20
 
-backup_retention_period = 1
-deletion_protection     = true
-skip_final_snapshot     = false
+backup_retention_period = 0
+deletion_protection     = false
+skip_final_snapshot     = true
