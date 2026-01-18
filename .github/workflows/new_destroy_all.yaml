@@ -39,19 +39,18 @@ jobs:
       - name: Update kubeconfig
         run: |
           aws eks update-kubeconfig \
-            --region $AWS_REGION \
-            --name $CLUSTER_NAME
+            --region ${{ vars.AWS_REGION }} \
+            --name ${{ vars.CLUSTER_NAME }}
 
-      - name: Force delete namespace resources
+      - name: Delete namespace resources
         run: |
           kubectl delete all --all -n $NAMESPACE --force --grace-period=0 || true
           kubectl delete pvc --all -n $NAMESPACE --force --grace-period=0 || true
           kubectl delete configmap --all -n $NAMESPACE --force --grace-period=0 || true
           kubectl delete secret --all -n $NAMESPACE --force --grace-period=0 || true
           kubectl delete job --all -n $NAMESPACE --force --grace-period=0 || true
-          kubectl delete ingress --all -n $NAMESPACE --force --grace-period=0 || true
 
-      - name: Remove namespace finalizers (IMPORTANT)
+      - name: Remove namespace finalizers
         run: |
           kubectl get namespace $NAMESPACE -o json \
           | jq '.spec.finalizers=[]' \
@@ -62,7 +61,7 @@ jobs:
           kubectl delete namespace $NAMESPACE --force --grace-period=0 || true
 
 # =====================================================
-# 2️⃣ DISABLE RDS PROTECTION
+# 2️⃣ DISABLE RDS DELETION PROTECTION
 # =====================================================
   disable_rds_protection:
     runs-on: ubuntu-latest
@@ -102,13 +101,11 @@ jobs:
 
       - uses: hashicorp/setup-terraform@v3
 
-      - name: Terraform Init
+      - name: Terraform Destroy (RDS)
         working-directory: terraform/rds
-        run: terraform init -input=false
-
-      - name: Terraform Destroy
-        working-directory: terraform/rds
-        run: terraform destroy -auto-approve
+        run: |
+          terraform init -input=false
+          terraform destroy -auto-approve
 
 # =====================================================
 # 4️⃣ DESTROY EKS
@@ -127,9 +124,11 @@ jobs:
 
       - uses: hashicorp/setup-terraform@v3
 
-      - name: Terraform Destroy
+      - name: Terraform Destroy (EKS)
         working-directory: terraform/eks
-        run: terraform destroy -auto-approve
+        run: |
+          terraform init -input=false
+          terraform destroy -auto-approve
 
 # =====================================================
 # 5️⃣ DELETE ECR
@@ -144,7 +143,7 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
-      - name: Delete ECR
+      - name: Delete ECR repository
         run: |
           aws ecr delete-repository \
             --repository-name $ECR_REPOSITORY \
@@ -167,6 +166,8 @@ jobs:
 
       - uses: hashicorp/setup-terraform@v3
 
-      - name: Terraform Destroy
+      - name: Terraform Destroy (VPC)
         working-directory: terraform/vpc
-        run: terraform destroy -auto-approve
+        run: |
+          terraform init -input=false
+          terraform destroy -auto-approve
