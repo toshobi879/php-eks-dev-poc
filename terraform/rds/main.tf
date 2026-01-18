@@ -1,56 +1,3 @@
-data "terraform_remote_state" "vpc" {
-  backend = "s3"
-  config = {
-    bucket = "billow-poc-terraform-state"
-    key    = "vpc/terraform.tfstate"
-    region = "us-west-2"
-  }
-}
-
-data "terraform_remote_state" "eks" {
-  backend = "s3"
-  config = {
-    bucket = "billow-poc-terraform-state"
-    key    = "eks/terraform.tfstate"
-    region = "us-west-2"
-  }
-}
-
-resource "aws_db_subnet_group" "this" {
-  name       = "${var.project_name}-dbsubnets"
-  subnet_ids = data.terraform_remote_state.vpc.outputs.private_subnets
-}
-
-# -------------------------------
-# RDS Security Group (ONLY from EKS NODES)
-# -------------------------------
-resource "aws_security_group" "rds_sg" {
-  name   = "${var.project_name}-rds-sg"
-  vpc_id = data.terraform_remote_state.vpc.outputs.vpc_id
-
-  ingress {
-    description     = "MySQL from EKS nodes only"
-    from_port       = 3306
-    to_port         = 3306
-    protocol        = "tcp"
-    security_groups = [data.terraform_remote_state.eks.outputs.node_security_group_id]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name        = "${var.project_name}-rds-sg"
-  }
-}
-
-# -------------------------------
-# RDS Instance
-# -------------------------------
 resource "aws_db_instance" "mysql" {
   identifier        = "${var.project_name}-mysql"
   engine            = "mysql"
@@ -71,6 +18,10 @@ resource "aws_db_instance" "mysql" {
   skip_final_snapshot     = var.skip_final_snapshot
 
   tags = {
-    Name        = "${var.project_name}-mysql"
+    Name = "${var.project_name}-mysql"
+  }
+
+  lifecycle {
+    ignore_changes = [password]
   }
 }
