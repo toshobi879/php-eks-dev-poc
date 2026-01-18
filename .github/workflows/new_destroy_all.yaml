@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 env:
-  AWS_REGION: ${{ vars.AWS_REGION }}
+  AWS_REGION: us-west-2
   CLUSTER_NAME: ${{ vars.CLUSTER_NAME }}
   DB_IDENTIFIER: ${{ vars.DB_IDENTIFIER }}
   ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
@@ -28,19 +28,18 @@ env:
 jobs:
   k8s_cleanup:
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment }}
 
     steps:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: us-west-2
 
       - name: Update kubeconfig
         run: |
           aws eks update-kubeconfig \
-            --region ${{ vars.AWS_REGION }} \
-            --name ${{ vars.CLUSTER_NAME }}
+            --region us-west-2 \
+            --name $CLUSTER_NAME
 
       - name: Delete namespace resources
         run: |
@@ -49,12 +48,17 @@ jobs:
           kubectl delete configmap --all -n $NAMESPACE --force --grace-period=0 || true
           kubectl delete secret --all -n $NAMESPACE --force --grace-period=0 || true
           kubectl delete job --all -n $NAMESPACE --force --grace-period=0 || true
+          kubectl delete ingress --all -n $NAMESPACE --force --grace-period=0 || true
 
-      - name: Remove namespace finalizers
+      - name: Remove namespace finalizers (SAFE)
         run: |
-          kubectl get namespace $NAMESPACE -o json \
-          | jq '.spec.finalizers=[]' \
-          | kubectl replace --raw "/api/v1/namespaces/$NAMESPACE/finalize" -f -
+          if kubectl get namespace $NAMESPACE >/dev/null 2>&1; then
+            kubectl get namespace $NAMESPACE -o json \
+            | jq '.spec.finalizers=[]' \
+            | kubectl replace --raw "/api/v1/namespaces/$NAMESPACE/finalize" -f -
+          else
+            echo "Namespace already deleted"
+          fi
 
       - name: Delete namespace
         run: |
@@ -71,7 +75,7 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: us-west-2
 
       - name: Disable RDS deletion protection
         run: |
@@ -93,7 +97,7 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: us-west-2
 
       - name: Export DB password
         run: |
@@ -120,7 +124,7 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: us-west-2
 
       - uses: hashicorp/setup-terraform@v3
 
@@ -141,9 +145,9 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: us-west-2
 
-      - name: Delete ECR repository
+      - name: Delete ECR
         run: |
           aws ecr delete-repository \
             --repository-name $ECR_REPOSITORY \
@@ -162,7 +166,7 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: us-west-2
 
       - uses: hashicorp/setup-terraform@v3
 
