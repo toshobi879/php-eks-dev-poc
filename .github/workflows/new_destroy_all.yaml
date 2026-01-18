@@ -1,4 +1,4 @@
-name: Full Destroy - Complete Infra Cleanup (One Click)
+name: Full Destroy - Complete Infra Cleanup
 
 on:
   workflow_dispatch:
@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 env:
-  AWS_REGION: ${{ vars.AWS_REGION }}
+  AWS_REGION: us-west-2
   CLUSTER_NAME: ${{ vars.CLUSTER_NAME }}
   DB_IDENTIFIER: ${{ vars.DB_IDENTIFIER }}
   ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
@@ -26,19 +26,24 @@ env:
 # 1️⃣ CLEAN KUBERNETES
 # =====================================================
 jobs:
+
   k8s_cleanup:
     runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
 
     steps:
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: actions/checkout@v5
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: us-west-2
 
       - name: Update kubeconfig
         run: |
           aws eks update-kubeconfig \
-            --region $AWS_REGION \
+            --region us-west-2 \
             --name $CLUSTER_NAME
 
       - name: Delete all Kubernetes resources
@@ -46,10 +51,10 @@ jobs:
         run: |
           kubectl delete all --all -n $NAMESPACE --force --grace-period=0 || true
           kubectl delete pvc --all -n $NAMESPACE --force --grace-period=0 || true
-          kubectl delete configmap --all -n $NAMESPACE --force --grace-period=0 || true
-          kubectl delete secret --all -n $NAMESPACE --force --grace-period=0 || true
-          kubectl delete job --all -n $NAMESPACE --force --grace-period=0 || true
-          kubectl delete ingress --all -n $NAMESPACE --force --grace-period=0 || true
+          kubectl delete configmap --all -n $NAMESPACE || true
+          kubectl delete secret --all -n $NAMESPACE || true
+          kubectl delete job --all -n $NAMESPACE || true
+          kubectl delete ingress --all -n $NAMESPACE || true
 
       - name: Remove namespace finalizers
         continue-on-error: true
@@ -64,19 +69,20 @@ jobs:
           kubectl delete namespace $NAMESPACE --force --grace-period=0 || true
 
 # =====================================================
-# 2️⃣ DISABLE RDS DELETION PROTECTION
+# 2️⃣ DISABLE RDS PROTECTION
 # =====================================================
   disable_rds_protection:
     runs-on: ubuntu-latest
     needs: k8s_cleanup
+    environment: ${{ github.event.inputs.environment }}
 
     steps:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: us-west-2
 
-      - name: Disable deletion protection
+      - name: Disable RDS deletion protection
         run: |
           aws rds modify-db-instance \
             --db-instance-identifier $DB_IDENTIFIER \
@@ -89,6 +95,7 @@ jobs:
   destroy_rds:
     runs-on: ubuntu-latest
     needs: disable_rds_protection
+    environment: ${{ github.event.inputs.environment }}
 
     steps:
       - uses: actions/checkout@v5
@@ -96,7 +103,7 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: us-west-2
 
       - name: Export DB password
         run: |
@@ -118,6 +125,7 @@ jobs:
   destroy_eks:
     runs-on: ubuntu-latest
     needs: destroy_rds
+    environment: ${{ github.event.inputs.environment }}
 
     steps:
       - uses: actions/checkout@v5
@@ -125,7 +133,7 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: us-west-2
 
       - uses: hashicorp/setup-terraform@v3
 
@@ -143,12 +151,13 @@ jobs:
   delete_ecr:
     runs-on: ubuntu-latest
     needs: destroy_eks
+    environment: ${{ github.event.inputs.environment }}
 
     steps:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: us-west-2
 
       - name: Delete ECR repository
         run: |
@@ -162,6 +171,7 @@ jobs:
   destroy_vpc:
     runs-on: ubuntu-latest
     needs: delete_ecr
+    environment: ${{ github.event.inputs.environment }}
 
     steps:
       - uses: actions/checkout@v5
@@ -169,7 +179,7 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: us-west-2
 
       - uses: hashicorp/setup-terraform@v3
 
