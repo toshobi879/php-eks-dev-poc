@@ -1,34 +1,26 @@
-name: DRY RUN - Destroy Infra (No Deletion)
+dry_run_rds:
+  runs-on: ubuntu-latest
+  environment: dev   # 🔥 THIS IS REQUIRED
 
-on:
-  workflow_dispatch:
+  steps:
+    - uses: actions/checkout@v5
 
-permissions:
-  id-token: write
-  contents: read
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        aws-region: us-west-2
 
-jobs:
-  dry_run_rds:
-    runs-on: ubuntu-latest
+    - name: Export DB password
+      run: |
+        echo "TF_VAR_db_password=${{ secrets.TF_VAR_DB_PASSWORD }}" >> $GITHUB_ENV
 
-    steps:
-      - uses: actions/checkout@v5
+    - uses: hashicorp/setup-terraform@v3
 
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: us-west-2
+    - name: Terraform Init
+      working-directory: terraform/rds
+      run: terraform init -input=false
 
-      - name: Export DB password
-        run: |
-          echo "TF_VAR_db_password=${{ secrets.TF_VAR_DB_PASSWORD }}" >> $GITHUB_ENV
-
-      - uses: hashicorp/setup-terraform@v3
-
-      - name: Terraform Init (RDS)
-        working-directory: terraform/rds
-        run: terraform init -input=false
-
-      - name: Terraform DRY RUN (RDS)
-        working-directory: terraform/rds
-        run: terraform plan -destroy
+    - name: Terraform Plan (Destroy)
+      working-directory: terraform/rds
+      run: terraform plan -destroy
