@@ -22,11 +22,10 @@ env:
   ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
   NAMESPACE: ${{ vars.K8S_NAMESPACE }}
 
+# =====================================================
+# 1️⃣ CLEAN KUBERNETES
+# =====================================================
 jobs:
-
-# =====================================================
-# 1️⃣ CLEAN KUBERNETES (MANDATORY FIRST)
-# =====================================================
   k8s_cleanup:
     runs-on: ubuntu-latest
 
@@ -34,7 +33,7 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: Update kubeconfig
         run: |
@@ -42,7 +41,7 @@ jobs:
             --region $AWS_REGION \
             --name $CLUSTER_NAME
 
-      - name: Delete all resources in namespace
+      - name: Delete all Kubernetes resources
         continue-on-error: true
         run: |
           kubectl delete all --all -n $NAMESPACE --force --grace-period=0 || true
@@ -64,7 +63,6 @@ jobs:
         run: |
           kubectl delete namespace $NAMESPACE --force --grace-period=0 || true
 
-
 # =====================================================
 # 2️⃣ DISABLE RDS DELETION PROTECTION
 # =====================================================
@@ -76,15 +74,14 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: ${{ vars.AWS_REGION }}
 
-      - name: Disable RDS deletion protection
+      - name: Disable deletion protection
         run: |
           aws rds modify-db-instance \
             --db-instance-identifier $DB_IDENTIFIER \
             --no-deletion-protection \
             --apply-immediately || true
-
 
 # =====================================================
 # 3️⃣ DESTROY RDS
@@ -99,9 +96,8 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: ${{ vars.AWS_REGION }}
 
-      # 🔥 FIX: FORCE DB PASSWORD INTO ENV
       - name: Export DB password
         run: |
           echo "TF_VAR_db_password=${{ secrets.TF_VAR_DB_PASSWORD }}" >> $GITHUB_ENV
@@ -116,7 +112,6 @@ jobs:
         working-directory: terraform/rds
         run: terraform destroy -auto-approve -lock-timeout=5m
 
-
 # =====================================================
 # 4️⃣ DESTROY EKS
 # =====================================================
@@ -130,7 +125,7 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - uses: hashicorp/setup-terraform@v3
 
@@ -141,7 +136,6 @@ jobs:
       - name: Terraform Destroy (EKS)
         working-directory: terraform/eks
         run: terraform destroy -auto-approve -lock-timeout=5m
-
 
 # =====================================================
 # 5️⃣ DELETE ECR
@@ -154,14 +148,13 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: Delete ECR repository
         run: |
           aws ecr delete-repository \
             --repository-name $ECR_REPOSITORY \
             --force || true
-
 
 # =====================================================
 # 6️⃣ DESTROY VPC
@@ -176,7 +169,7 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - uses: hashicorp/setup-terraform@v3
 
