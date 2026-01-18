@@ -17,17 +17,16 @@ permissions:
 
 env:
   AWS_REGION: us-west-2
-  CLUSTER_NAME: ${{ vars.CLUSTER_NAME }}
-  DB_IDENTIFIER: ${{ vars.DB_IDENTIFIER }}
-  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
-  NAMESPACE: ${{ vars.K8S_NAMESPACE }}
 
-# =====================================================
-# 1️⃣ CLEAN KUBERNETES
-# =====================================================
 jobs:
+
+# ===============================
+# 1️⃣ CLEAN K8S
+# ===============================
   k8s_cleanup:
     runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.event.inputs.environment }}
 
     steps:
       - uses: aws-actions/configure-aws-credentials@v4
@@ -39,37 +38,20 @@ jobs:
         run: |
           aws eks update-kubeconfig \
             --region us-west-2 \
-            --name $CLUSTER_NAME
-
-      - name: Delete namespace resources
-        run: |
-          kubectl delete all --all -n $NAMESPACE --force --grace-period=0 || true
-          kubectl delete pvc --all -n $NAMESPACE --force --grace-period=0 || true
-          kubectl delete configmap --all -n $NAMESPACE --force --grace-period=0 || true
-          kubectl delete secret --all -n $NAMESPACE --force --grace-period=0 || true
-          kubectl delete job --all -n $NAMESPACE --force --grace-period=0 || true
-          kubectl delete ingress --all -n $NAMESPACE --force --grace-period=0 || true
-
-      - name: Remove namespace finalizers (SAFE)
-        run: |
-          if kubectl get namespace $NAMESPACE >/dev/null 2>&1; then
-            kubectl get namespace $NAMESPACE -o json \
-            | jq '.spec.finalizers=[]' \
-            | kubectl replace --raw "/api/v1/namespaces/$NAMESPACE/finalize" -f -
-          else
-            echo "Namespace already deleted"
-          fi
+            --name ${{ vars.CLUSTER_NAME }}
 
       - name: Delete namespace
         run: |
-          kubectl delete namespace $NAMESPACE --force --grace-period=0 || true
+          kubectl delete namespace ${{ vars.K8S_NAMESPACE }} --force --grace-period=0 || true
 
-# =====================================================
-# 2️⃣ DISABLE RDS DELETION PROTECTION
-# =====================================================
+# ===============================
+# 2️⃣ DISABLE RDS PROTECTION
+# ===============================
   disable_rds_protection:
     runs-on: ubuntu-latest
     needs: k8s_cleanup
+    environment:
+      name: ${{ github.event.inputs.environment }}
 
     steps:
       - uses: aws-actions/configure-aws-credentials@v4
@@ -77,19 +59,20 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: us-west-2
 
-      - name: Disable RDS deletion protection
-        run: |
+      - run: |
           aws rds modify-db-instance \
-            --db-instance-identifier $DB_IDENTIFIER \
+            --db-instance-identifier ${{ vars.DB_IDENTIFIER }} \
             --no-deletion-protection \
             --apply-immediately || true
 
-# =====================================================
+# ===============================
 # 3️⃣ DESTROY RDS
-# =====================================================
+# ===============================
   destroy_rds:
     runs-on: ubuntu-latest
     needs: disable_rds_protection
+    environment:
+      name: ${{ github.event.inputs.environment }}
 
     steps:
       - uses: actions/checkout@v5
@@ -99,47 +82,43 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: us-west-2
 
-      - name: Export DB password
-        run: |
-          echo "TF_VAR_db_password=${{ secrets.TF_VAR_DB_PASSWORD }}" >> $GITHUB_ENV
+      - run: echo "TF_VAR_db_password=${{ secrets.TF_VAR_DB_PASSWORD }}" >> $GITHUB_ENV
 
       - uses: hashicorp/setup-terraform@v3
 
-      - name: Terraform Destroy (RDS)
-        working-directory: terraform/rds
-        run: |
-          terraform init -input=false
+      - run: |
+          terraform init
           terraform destroy -auto-approve
+        working-directory: terraform/rds
 
-# =====================================================
+# ===============================
 # 4️⃣ DESTROY EKS
-# =====================================================
+# ===============================
   destroy_eks:
     runs-on: ubuntu-latest
     needs: destroy_rds
+    environment:
+      name: ${{ github.event.inputs.environment }}
 
     steps:
       - uses: actions/checkout@v5
-
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: us-west-2
 
       - uses: hashicorp/setup-terraform@v3
-
-      - name: Terraform Destroy (EKS)
+      - run: terraform destroy -auto-approve
         working-directory: terraform/eks
-        run: |
-          terraform init -input=false
-          terraform destroy -auto-approve
 
-# =====================================================
+# ===============================
 # 5️⃣ DELETE ECR
-# =====================================================
+# ===============================
   delete_ecr:
     runs-on: ubuntu-latest
     needs: destroy_eks
+    environment:
+      name: ${{ github.event.inputs.environment }}
 
     steps:
       - uses: aws-actions/configure-aws-credentials@v4
@@ -147,31 +126,27 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: us-west-2
 
-      - name: Delete ECR
-        run: |
+      - run: |
           aws ecr delete-repository \
-            --repository-name $ECR_REPOSITORY \
+            --repository-name ${{ vars.ECR_REPOSITORY }} \
             --force || true
 
-# =====================================================
+# ===============================
 # 6️⃣ DESTROY VPC
-# =====================================================
+# ===============================
   destroy_vpc:
     runs-on: ubuntu-latest
     needs: delete_ecr
+    environment:
+      name: ${{ github.event.inputs.environment }}
 
     steps:
       - uses: actions/checkout@v5
-
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: us-west-2
 
       - uses: hashicorp/setup-terraform@v3
-
-      - name: Terraform Destroy (VPC)
+      - run: terraform destroy -auto-approve
         working-directory: terraform/vpc
-        run: |
-          terraform init -input=false
-          terraform destroy -auto-approve
