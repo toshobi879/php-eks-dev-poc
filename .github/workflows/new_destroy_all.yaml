@@ -138,22 +138,31 @@ jobs:
             --repository-name ${{ vars.ECR_REPOSITORY }} \
             --force || true
 
-# ===============================
-# 6️⃣ DESTROY VPC
-# ===============================
+# =====================================================
+# 6️⃣ DESTROY VPC (FINAL FIX)
+# =====================================================
   destroy_vpc:
     runs-on: ubuntu-latest
     needs: delete_ecr
-    environment:
-      name: ${{ github.event.inputs.environment }}
+    environment: ${{ github.event.inputs.environment }}
 
     steps:
       - uses: actions/checkout@v5
+
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: us-west-2
+          aws-region: ${{ vars.AWS_REGION }}
 
       - uses: hashicorp/setup-terraform@v3
-      - run: terraform destroy -auto-approve
+
+      # backend re-init
+      - name: Terraform Init (VPC)
         working-directory: terraform/vpc
+        run: terraform init -reconfigure
+
+      # Destroy
+      - name: Terraform Destroy (VPC)
+        working-directory: terraform/vpc
+        run: terraform destroy -auto-approve
+
