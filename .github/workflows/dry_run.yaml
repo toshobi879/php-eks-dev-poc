@@ -22,8 +22,6 @@ env:
   ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
   NAMESPACE: ${{ vars.K8S_NAMESPACE }}
 
-
-
 # =====================================================
 # 1️⃣ DRY RUN — RDS
 # =====================================================
