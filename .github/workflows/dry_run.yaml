@@ -2,29 +2,11 @@ name: DRY RUN - Destroy Infra (No Deletion)
 
 on:
   workflow_dispatch:
-    inputs:
-      environment:
-        description: "Select environment"
-        required: true
-        type: choice
-        options:
-          - dev
-          - prod
 
 permissions:
   id-token: write
   contents: read
 
-env:
-  AWS_REGION: ${{ vars.AWS_REGION }}
-  CLUSTER_NAME: ${{ vars.CLUSTER_NAME }}
-  DB_IDENTIFIER: ${{ vars.DB_IDENTIFIER }}
-  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
-  NAMESPACE: ${{ vars.K8S_NAMESPACE }}
-
-# =====================================================
-# 1️⃣ DRY RUN — RDS
-# =====================================================
 jobs:
   dry_run_rds:
     runs-on: ubuntu-latest
@@ -35,7 +17,7 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: us-west-2
 
       - name: Export DB password
         run: |
@@ -49,54 +31,4 @@ jobs:
 
       - name: Terraform DRY RUN (RDS)
         working-directory: terraform/rds
-        run: terraform plan -destroy
-
-# =====================================================
-# 2️⃣ DRY RUN — EKS
-# =====================================================
-  dry_run_eks:
-    runs-on: ubuntu-latest
-    needs: dry_run_rds
-
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
-
-      - uses: hashicorp/setup-terraform@v3
-
-      - name: Terraform Init (EKS)
-        working-directory: terraform/eks
-        run: terraform init -input=false
-
-      - name: Terraform DRY RUN (EKS)
-        working-directory: terraform/eks
-        run: terraform plan -destroy
-
-# =====================================================
-# 3️⃣ DRY RUN — VPC
-# =====================================================
-  dry_run_vpc:
-    runs-on: ubuntu-latest
-    needs: dry_run_eks
-
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
-
-      - uses: hashicorp/setup-terraform@v3
-
-      - name: Terraform Init (VPC)
-        working-directory: terraform/vpc
-        run: terraform init -input=false
-
-      - name: Terraform DRY RUN (VPC)
-        working-directory: terraform/vpc
         run: terraform plan -destroy
