@@ -21,9 +21,7 @@ resource "aws_db_subnet_group" "this" {
   subnet_ids = data.terraform_remote_state.vpc.outputs.private_subnets
 }
 
-# -------------------------------
-# RDS Security Group (ONLY from EKS NODES)
-# -------------------------------
+
 resource "aws_security_group" "rds_sg" {
   name   = "${var.project_name}-rds-sg"
   vpc_id = data.terraform_remote_state.vpc.outputs.vpc_id
@@ -48,9 +46,7 @@ resource "aws_security_group" "rds_sg" {
   }
 }
 
-# -------------------------------
-# RDS Instance
-# -------------------------------
+
 resource "aws_db_instance" "mysql" {
   identifier        = "${var.project_name}-mysql"
   engine            = "mysql"
