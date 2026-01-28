@@ -20,7 +20,7 @@ env:
 
 jobs:
 
-  # 1️⃣ VPC
+  # 1️ VPC
 
   vpc:
     name: Terraform Apply - VPC
@@ -44,7 +44,7 @@ jobs:
           terraform apply -auto-approve -input=false
 
 
-  # 2️⃣ EKS
+  # 2️ EKS
   eks:
     name: Terraform Apply - EKS
     runs-on: ubuntu-latest
@@ -68,7 +68,7 @@ jobs:
           terraform apply -auto-approve -input=false
 
 
-  # 3️⃣ RDS
+  # 3️ RDS
   rds:
     name: Terraform Apply - RDS
     runs-on: ubuntu-latest
@@ -94,7 +94,7 @@ jobs:
           terraform apply -auto-approve -input=false
 
 
-  # 4️⃣ BUILD & PUSH TO ECR
+  # 4️ BUILD & PUSH TO ECR
   build:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest
@@ -148,7 +148,7 @@ jobs:
           docker push \
           $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
 
-  # 5️⃣ DEPLOY TO EKS + DB INIT
+  # 5️ DEPLOY TO EKS + DB INIT
   deploy:
     name: Deploy to EKS
     runs-on: ubuntu-latest
