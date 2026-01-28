@@ -19,9 +19,7 @@ module "eks" {
 
   cluster_endpoint_public_access = true
 
-  ############################################
-  # ✅ EKS ACCESS ENTRIES (PRODUCTION CORRECT)
-  ############################################
+
   access_entries = {
 
     eks_admin_sso = {
@@ -50,7 +48,6 @@ module "eks" {
       }
     }
   }
-  ############################################
 
   eks_managed_node_groups = {
     default = {
