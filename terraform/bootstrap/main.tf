@@ -1,8 +1,7 @@
 data "aws_caller_identity" "current" {}
 
 ############################################
-# S3 Bucket for Terraform State
-############################################
+
 
 resource "aws_s3_bucket" "terraform_state" {
   bucket        = var.backend_bucket_name
@@ -18,9 +17,6 @@ resource "aws_s3_bucket" "terraform_state" {
   }
 }
 
-############################################
-# Enable Versioning
-############################################
 
 resource "aws_s3_bucket_versioning" "versioning" {
   bucket = aws_s3_bucket.terraform_state.id
@@ -30,9 +26,6 @@ resource "aws_s3_bucket_versioning" "versioning" {
   }
 }
 
-############################################
-# Enable Encryption
-############################################
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "encryption" {
   bucket = aws_s3_bucket.terraform_state.id
@@ -44,8 +37,6 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "encryption" {
   }
 }
 
-############################################
-# DynamoDB Table for Terraform State Locking
 ############################################
 
 resource "aws_dynamodb_table" "terraform_locks" {
@@ -72,9 +63,7 @@ resource "aws_dynamodb_table" "terraform_locks" {
   }
 }
 
-############################################
-# IAM Policy for Terraform Backend Access
-############################################
+
 
 resource "aws_iam_policy" "terraform_backend_policy" {
   name        = "terraform-backend-access"
@@ -107,9 +96,7 @@ resource "aws_iam_policy" "terraform_backend_policy" {
   })
 }
 
-############################################
-# Attach Backend Policy to GitHub Actions Role
-############################################
+
 
 resource "aws_iam_role_policy_attachment" "attach_backend_policy" {
   role       = var.github_actions_role_name
