@@ -12,9 +12,7 @@ on:
 
 jobs:
 
-  # ==========================================
-  # 5️⃣ BUILD & PUSH TO ECR
-  # ==========================================
+  #  BUILD & PUSH TO ECR
   build:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest
@@ -70,9 +68,7 @@ jobs:
           $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
 
 
-  # ==========================================
   # 6️⃣ DEPLOY TO EKS + DB INIT
-  # ==========================================
   deploy:
     name: Deploy to EKS (Dev)
     runs-on: ubuntu-latest
@@ -128,9 +124,7 @@ jobs:
           kubectl rollout status deployment/$DEPLOYMENT_NAME \
           -n $NAMESPACE --timeout=300s
 
-      # ==========================================
       # 🔹 DB INIT (Schema + Seed Data)
-      # ==========================================
       - name: Initialize database (create table + seed data)
         run: |
           kubectl delete job db-init-job -n $NAMESPACE --ignore-not-found
