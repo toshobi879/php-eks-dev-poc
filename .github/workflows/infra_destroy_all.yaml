@@ -20,9 +20,9 @@ env:
 
 jobs:
 
-# ===============================
-# 1️⃣ CLEAN K8S
-# ===============================
+
+#  CLEAN K8S
+
   k8s_cleanup:
     runs-on: ubuntu-latest
     environment:
@@ -44,9 +44,9 @@ jobs:
         run: |
           kubectl delete namespace ${{ vars.K8S_NAMESPACE }} --force --grace-period=0 || true
 
-# ===============================
-# 2️⃣ DISABLE RDS PROTECTION
-# ===============================
+
+#  DISABLE RDS PROTECTION
+
   disable_rds_protection:
     runs-on: ubuntu-latest
     needs: k8s_cleanup
@@ -65,9 +65,9 @@ jobs:
             --no-deletion-protection \
             --apply-immediately || true
 
-# ===============================
-# 3️⃣ DESTROY RDS
-# ===============================
+
+#  DESTROY RDS
+
   destroy_rds:
     runs-on: ubuntu-latest
     needs: disable_rds_protection
@@ -91,9 +91,9 @@ jobs:
           terraform destroy -auto-approve
         working-directory: terraform/rds
 
-# ===============================
-# 4️⃣ DESTROY EKS
-# ===============================
+
+#  DESTROY EKS
+
   destroy_eks:
     runs-on: ubuntu-latest
     needs: destroy_rds
@@ -118,9 +118,9 @@ jobs:
         working-directory: terraform/eks
         run: terraform destroy -auto-approve
 
-# ===============================
-# 5️⃣ DELETE ECR
-# ===============================
+
+#  DELETE ECR
+
   delete_ecr:
     runs-on: ubuntu-latest
     needs: destroy_eks
@@ -138,9 +138,9 @@ jobs:
             --repository-name ${{ vars.ECR_REPOSITORY }} \
             --force || true
 
-# =====================================================
-# 6️⃣ DESTROY VPC (FINAL FIX)
-# =====================================================
+
+#  DESTROY VPC (FINAL FIX)
+
   destroy_vpc:
     runs-on: ubuntu-latest
     needs: delete_ecr
