@@ -22,15 +22,10 @@ jobs:
     environment: ${{ github.event.inputs.environment }}
 
     steps:
-      # =========================
-      # Checkout Code
-      # =========================
+
       - name: Checkout code
         uses: actions/checkout@v5
 
-      # =========================
-      # Configure AWS (OIDC)
-      # =========================
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -38,17 +33,11 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
           role-session-name: GitHubActions-Bootstrap-${{ github.run_id }}
 
-      # =========================
-      # Setup Terraform
-      # =========================
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: latest
 
-      # =========================
-      # Terraform Init & Apply
-      # =========================
       - name: Terraform Init, Plan & Apply (Bootstrap)
         working-directory: terraform/bootstrap
         run: |
