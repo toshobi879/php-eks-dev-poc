@@ -176,7 +176,7 @@ while($row = $result->fetch_assoc()){
 <div class="header">
     <div>
         <h1>California Department of Transportation (Caltrans) </h1>
-        <span>Office Locator Portal</span>
+        <span>Office Locator Portal updated</span>
     </div>
     <div>
         <span>Powered by Amazon EKS & RDS</span>
