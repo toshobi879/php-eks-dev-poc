@@ -189,7 +189,7 @@ while($row = $result->fetch_assoc()){
     <div class="sidebar">
 
         <div class="info-bar">
-            📍 Search Caltrans offices across California.. Click any office to view on map.
+            📍 Search Caltrans offices across California. Click any office to view on map.
         </div>
 
         <form method="get" class="search-wrapper">
