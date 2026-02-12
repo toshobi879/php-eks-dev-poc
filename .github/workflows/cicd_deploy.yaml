@@ -1,4 +1,4 @@
-name: Build and Deploy to EKS
+name: CI/CD - Build & Deploy to EKS
 
 on:
   push:
